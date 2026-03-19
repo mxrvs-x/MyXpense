@@ -47,8 +47,7 @@ export const ensureCurrentCycle = async () => {
         user_id: user.id,
         start_date: start,
         end_date: end,
-        income: 0, // user sets later
-        budget: 0,
+        salary: 0, // ✅ match your dashboard
       },
     ])
     .select()
