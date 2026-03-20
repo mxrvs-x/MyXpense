@@ -4,7 +4,7 @@ import { Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../../lib/supabase";
 
-export default function Settings() {
+export default function Menu() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
 

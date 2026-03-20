@@ -1,10 +1,14 @@
 import { supabase } from "./supabase";
 
+// ✅ helper: avoid timezone issues
+const formatLocalDate = (date: Date) => {
+  return date.toLocaleDateString("en-CA"); // YYYY-MM-DD
+};
+
 export const ensureCurrentCycle = async () => {
   console.log("Running ensureCurrentCycle");
 
   const { data: sessionData } = await supabase.auth.getSession();
-  console.log("Session:", sessionData);
   const user = sessionData.session?.user;
 
   if (!user) return null;
@@ -15,6 +19,7 @@ export const ensureCurrentCycle = async () => {
   let start: Date;
   let end: Date;
 
+  // 📅 cycle logic
   if (day >= 7 && day <= 21) {
     start = new Date(today.getFullYear(), today.getMonth(), 7);
     end = new Date(today.getFullYear(), today.getMonth(), 21);
@@ -28,16 +33,25 @@ export const ensureCurrentCycle = async () => {
     }
   }
 
+  const startDate = formatLocalDate(start);
+  const endDate = formatLocalDate(end);
+
   // 🔍 Check if cycle already exists
-  const { data: existing } = await supabase
+  const { data: existing, error: fetchError } = await supabase
     .from("cycles")
     .select("*")
     .eq("user_id", user.id)
-    .eq("start_date", start.toISOString().split("T")[0])
-    .eq("end_date", end.toISOString().split("T")[0])
-    .single();
+    .eq("start_date", startDate)
+    .eq("end_date", endDate)
+    .maybeSingle();
 
-  if (existing) return existing;
+  if (fetchError) {
+    console.log("Fetch error:", fetchError.message);
+  }
+
+  if (existing) {
+    return existing;
+  }
 
   // ➕ Create new cycle
   const { data: newCycle, error } = await supabase
@@ -45,16 +59,31 @@ export const ensureCurrentCycle = async () => {
     .insert([
       {
         user_id: user.id,
-        start_date: start,
-        end_date: end,
-        salary: 0, // ✅ match your dashboard
+        start_date: startDate,
+        end_date: endDate,
+        budget: 0,
       },
     ])
     .select()
-    .single();
+    .maybeSingle();
 
+  // ⚠️ Handle duplicate race condition
   if (error) {
-    console.log(error.message);
+    if (error.code === "23505") {
+      console.log("Duplicate detected, fetching existing...");
+
+      const { data } = await supabase
+        .from("cycles")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("start_date", startDate)
+        .eq("end_date", endDate)
+        .maybeSingle();
+
+      return data;
+    }
+
+    console.log("Insert error:", error.message);
     return null;
   }
 
