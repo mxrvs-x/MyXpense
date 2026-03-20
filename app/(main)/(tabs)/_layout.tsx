@@ -35,7 +35,6 @@ export default function TabsLayout() {
       <Tabs
         screenOptions={{
           headerShown: true,
-
           // HEADER
           headerStyle: {
             backgroundColor: theme.colors.background,
@@ -89,11 +88,7 @@ export default function TabsLayout() {
           tabBarActiveTintColor: theme.colors.primary,
           tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
 
-          tabBarLabelStyle: {
-            fontSize: 11,
-            fontWeight: "600",
-            marginBottom: 2,
-          },
+          tabBarShowLabel: false,
 
           tabBarIconStyle: {
             marginTop: 2,
@@ -104,8 +99,12 @@ export default function TabsLayout() {
           name="dashboard"
           options={{
             title: "Dashboard",
-            tabBarIcon: ({ color, size }) => (
-              <MaterialIcons name="dashboard" size={size} color={color} />
+            tabBarIcon: ({ color, focused }) => (
+              <MaterialIcons
+                name="dashboard"
+                size={focused ? 32 : 28} // ✅ bigger when active
+                color={color}
+              />
             ),
           }}
         />
@@ -114,8 +113,13 @@ export default function TabsLayout() {
           name="expenses"
           options={{
             title: "Expenses",
-            tabBarIcon: ({ color, size }) => (
-              <MaterialIcons name="money-off" size={size} color={color} />
+
+            tabBarIcon: ({ color, focused }) => (
+              <MaterialIcons
+                name="money-off"
+                size={focused ? 32 : 28} // ✅ bigger when active
+                color={color}
+              />
             ),
           }}
         />
@@ -130,11 +134,16 @@ export default function TabsLayout() {
         />
 
         <Tabs.Screen
-          name="bills"
+          name="calculator"
           options={{
-            title: "Bills",
-            tabBarIcon: ({ color, size }) => (
-              <MaterialIcons name="payments" size={size} color={color} />
+            title: "Expense Calculator",
+
+            tabBarIcon: ({ color, focused }) => (
+              <MaterialIcons
+                name="calculate"
+                size={focused ? 32 : 28} // ✅ bigger when active
+                color={color}
+              />
             ),
           }}
         />
@@ -143,8 +152,13 @@ export default function TabsLayout() {
           name="menu"
           options={{
             title: "Menu",
-            tabBarIcon: ({ color, size }) => (
-              <Entypo name="menu" size={size} color={color} />
+
+            tabBarIcon: ({ color, focused }) => (
+              <MaterialIcons
+                name="menu"
+                size={focused ? 32 : 28} // ✅ bigger when active
+                color={color}
+              />
             ),
           }}
         />

@@ -18,10 +18,14 @@ export default function AddBudgetModal({
 }: any) {
   const theme = useTheme();
 
+  // 🔥 THEME HELPERS
+  const textColor = theme.colors.onSurface;
+  const placeholderColor = theme.colors.onSurfaceVariant;
+
   const [salary, setSalary] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // 🔥 SAME DECIMAL HANDLER AS EXPENSE
+  // 🔥 DECIMAL HANDLER
   const handleSalaryChange = (text: string) => {
     let cleaned = text.replace(/[^0-9.]/g, "");
 
@@ -48,18 +52,20 @@ export default function AddBudgetModal({
     const { error } = await supabase
       .from("cycles")
       .update({
-        salary: parseFloat(parsed.toFixed(2)), // ✅ enforce decimals
+        salary: parseFloat(parsed.toFixed(2)),
       })
       .eq("id", cycleId);
 
     setLoading(false);
 
     if (error) {
-      alert(error.message);
+      console.log(error.message);
       return;
     }
 
-    setSalary(""); // reset
+    // RESET
+    setSalary("");
+
     onSaved?.();
     onClose();
   };
@@ -83,33 +89,53 @@ export default function AddBudgetModal({
             padding: 20,
           }}
         >
+          {/* TITLE */}
           <Text
             style={{
               fontWeight: "bold",
               fontSize: 18,
               marginBottom: 12,
               textAlign: "center",
-              color: theme.colors.onSurface,
+              color: textColor,
             }}
           >
             Set Salary
           </Text>
 
-          {/* SALARY INPUT */}
-          <TextInput
-            placeholder="Enter salary"
-            value={salary}
-            onChangeText={handleSalaryChange}
-            keyboardType="decimal-pad"
+          {/* 💰 INPUT WITH ₱ PREFIX */}
+          <View
             style={{
               marginTop: 10,
+              flexDirection: "row",
+              alignItems: "center",
               backgroundColor: theme.colors.background,
-              padding: 12,
               borderRadius: 10,
-              color: theme.colors.onSurface,
+              paddingHorizontal: 12,
             }}
-            placeholderTextColor={theme.colors.onSurfaceVariant}
-          />
+          >
+            <Text
+              style={{
+                color: theme.colors.onSurfaceVariant,
+                marginRight: 6,
+                fontWeight: "600",
+              }}
+            >
+              ₱
+            </Text>
+
+            <TextInput
+              placeholder="Enter salary"
+              placeholderTextColor={placeholderColor}
+              value={salary}
+              onChangeText={handleSalaryChange}
+              keyboardType="decimal-pad"
+              style={{
+                flex: 1,
+                paddingVertical: 12,
+                color: textColor,
+              }}
+            />
+          </View>
 
           {/* SAVE */}
           <TouchableOpacity
@@ -125,9 +151,16 @@ export default function AddBudgetModal({
             }}
           >
             {loading ? (
-              <ActivityIndicator color="white" />
+              <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={{ color: "white", fontWeight: "bold" }}>Save</Text>
+              <Text
+                style={{
+                  color: "#fff",
+                  fontWeight: "bold",
+                }}
+              >
+                Save
+              </Text>
             )}
           </TouchableOpacity>
 

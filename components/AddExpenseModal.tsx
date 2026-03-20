@@ -1,11 +1,11 @@
 import { useState } from "react";
 import {
-    Keyboard,
-    Modal,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Keyboard,
+  Modal,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import DropDownPicker from "react-native-dropdown-picker";
 import { useTheme } from "react-native-paper";
@@ -18,6 +18,10 @@ export default function AddExpenseModal({
   onSaved,
 }: any) {
   const theme = useTheme();
+
+  // 🔥 THEME HELPERS
+  const textColor = theme.colors.onSurface;
+  const placeholderColor = theme.colors.onSurfaceVariant;
 
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
@@ -36,6 +40,7 @@ export default function AddExpenseModal({
 
   const [catItems, setCatItems] = useState([
     { label: "Food", value: "Food" },
+    { label: "Groceries", value: "Groceries" },
     { label: "Bills", value: "Bills" },
     { label: "Transport", value: "Transport" },
     { label: "Shopping", value: "Shopping" },
@@ -57,7 +62,7 @@ export default function AddExpenseModal({
     { label: "Maribank", value: "maribank" },
   ]);
 
-  // 🔥 CENTRALIZED OPEN HANDLER (ONLY ONE OPEN)
+  // 🔥 ONLY ONE DROPDOWN OPEN
   const handleOpen = (type: "cat" | "type" | "method") => {
     Keyboard.dismiss();
 
@@ -138,12 +143,14 @@ export default function AddExpenseModal({
             padding: 20,
           }}
         >
+          {/* TITLE */}
           <Text
             style={{
               fontWeight: "bold",
               fontSize: 18,
               marginBottom: 12,
               textAlign: "center",
+              color: theme.colors.onSurface,
             }}
           >
             Add Expense
@@ -152,6 +159,7 @@ export default function AddExpenseModal({
           {/* NAME */}
           <TextInput
             placeholder="Name"
+            placeholderTextColor={placeholderColor}
             value={name}
             onChangeText={setName}
             style={{
@@ -159,12 +167,14 @@ export default function AddExpenseModal({
               backgroundColor: theme.colors.background,
               padding: 12,
               borderRadius: 10,
+              color: textColor,
             }}
           />
 
           {/* AMOUNT */}
           <TextInput
             placeholder="Amount"
+            placeholderTextColor={placeholderColor}
             value={amount}
             onChangeText={handleAmountChange}
             keyboardType="decimal-pad"
@@ -173,11 +183,12 @@ export default function AddExpenseModal({
               backgroundColor: theme.colors.background,
               padding: 12,
               borderRadius: 10,
+              color: textColor,
             }}
           />
 
           {/* CATEGORY */}
-          <View style={{ marginTop: 10 }}>
+          <View style={{ marginTop: 10, zIndex: 3000 }}>
             <DropDownPicker
               open={catOpen}
               onOpen={() => handleOpen("cat")}
@@ -192,6 +203,12 @@ export default function AddExpenseModal({
                 borderRadius: 10,
                 borderColor: theme.colors.outline,
                 backgroundColor: theme.colors.background,
+              }}
+              textStyle={{
+                color: theme.colors.onSurface,
+              }}
+              placeholderStyle={{
+                color: theme.colors.onSurfaceVariant,
               }}
               dropDownContainerStyle={{
                 borderRadius: 10,
@@ -217,6 +234,12 @@ export default function AddExpenseModal({
                 borderRadius: 10,
                 borderColor: theme.colors.outline,
                 backgroundColor: theme.colors.background,
+              }}
+              textStyle={{
+                color: theme.colors.onSurface,
+              }}
+              placeholderStyle={{
+                color: theme.colors.onSurfaceVariant,
               }}
               dropDownContainerStyle={{
                 borderRadius: 10,
@@ -244,6 +267,12 @@ export default function AddExpenseModal({
                   borderColor: theme.colors.outline,
                   backgroundColor: theme.colors.background,
                 }}
+                textStyle={{
+                  color: theme.colors.onSurface,
+                }}
+                placeholderStyle={{
+                  color: theme.colors.onSurfaceVariant,
+                }}
                 dropDownContainerStyle={{
                   borderRadius: 10,
                   borderColor: theme.colors.outline,
@@ -264,12 +293,19 @@ export default function AddExpenseModal({
               alignItems: "center",
             }}
           >
-            <Text style={{ color: "white", fontWeight: "bold" }}>Save</Text>
+            <Text style={{ color: "#fff", fontWeight: "bold" }}>Save</Text>
           </TouchableOpacity>
 
           {/* CANCEL */}
           <TouchableOpacity onPress={onClose} style={{ marginTop: 10 }}>
-            <Text style={{ textAlign: "center" }}>Cancel</Text>
+            <Text
+              style={{
+                textAlign: "center",
+                color: theme.colors.onSurfaceVariant,
+              }}
+            >
+              Cancel
+            </Text>
           </TouchableOpacity>
         </View>
       </View>

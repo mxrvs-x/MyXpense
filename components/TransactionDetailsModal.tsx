@@ -37,6 +37,7 @@ export default function TransactionDetailsModal({
   // ✅ OPTIONS (Label Mapping)
   const catItems = [
     { label: "Food", value: "Food" },
+    { label: "Groceries", value: "Groceries" },
     { label: "Bills", value: "Bills" },
     { label: "Transport", value: "Transport" },
     { label: "Shopping", value: "Shopping" },

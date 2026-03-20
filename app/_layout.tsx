@@ -57,8 +57,6 @@ export default function RootLayout() {
   return (
     <PaperProvider theme={theme}>
       <RefreshProvider>
-        {" "}
-        {/* 👈 ADD THIS */}
         <SafeAreaView
           style={{ flex: 1, backgroundColor: theme.colors.background }}
         >

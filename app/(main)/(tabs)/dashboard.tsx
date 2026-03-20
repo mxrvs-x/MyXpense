@@ -1,13 +1,14 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { ScrollView, TouchableOpacity, View } from "react-native";
+import { View } from "react-native";
 import { Text } from "react-native-paper";
 
 import { useRefresh } from "@/context/RefreshContext";
 import { useTheme } from "@/types/theme";
 import AddBudgetModal from "../../../components/AddBudgetModal";
 import TransactionDetailsModal from "../../../components/TransactionDetailsModal";
+import TransactionList from "../../../components/TransactionList";
 import UpdateBudgetModal from "../../../components/UpdateBudgetModal";
 import { ensureCurrentCycle } from "../../../lib/cycle";
 import { supabase } from "../../../lib/supabase";
@@ -25,7 +26,6 @@ export default function Dashboard() {
 
   const { refreshKey } = useRefresh();
 
-  // ✅ 💰 FORMATTER
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-PH", {
       style: "currency",
@@ -35,15 +35,10 @@ export default function Dashboard() {
   };
 
   const fetchExpenses = async (cycleId: string) => {
-    const { data: allData, error: allError } = await supabase
+    const { data: allData } = await supabase
       .from("expenses")
       .select("amount")
       .eq("cycle_id", cycleId);
-
-    if (allError) {
-      console.log(allError.message);
-      return;
-    }
 
     const totalSpent = (allData || []).reduce(
       (sum, item) => sum + Number(item.amount),
@@ -52,18 +47,13 @@ export default function Dashboard() {
 
     setTotal(totalSpent);
 
-    const { data: recentData, error: recentError } = await supabase
+    const { data: recentData } = await supabase
       .from("expenses")
       .select("*")
       .eq("cycle_id", cycleId)
       .order("date_spent", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(3);
-
-    if (recentError) {
-      console.log(recentError.message);
-      return;
-    }
 
     setRecentExpenses(recentData || []);
   };
@@ -123,7 +113,6 @@ export default function Dashboard() {
     });
   };
 
-  // 💰 Derived
   const INCOME = Number(cycle?.budget || 0);
   const REMAINING = INCOME - total;
   const progress = INCOME > 0 ? total / INCOME : 0;
@@ -144,21 +133,44 @@ export default function Dashboard() {
       : theme.colors.outline;
 
   return (
-    <ScrollView
-      style={{ backgroundColor: theme.colors.background }}
-      contentContainerStyle={{
-        paddingHorizontal: 16,
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: theme.colors.background,
       }}
     >
-      <View style={{ gap: 20 }}>
+      {/* 🔒 FIXED HEADER */}
+      <View style={{ paddingHorizontal: 16 }}>
+        {/* 👋 GREETING */}
+        <View style={{ marginTop: 10 }}>
+          <Text
+            style={{
+              fontSize: 14,
+              color: theme.colors.onSurfaceVariant,
+            }}
+          >
+            Hello,
+          </Text>
+
+          <Text
+            style={{
+              fontSize: 22,
+              fontWeight: "bold",
+              color: theme.colors.onBackground,
+            }}
+          >
+            Marviquint!
+          </Text>
+        </View>
+
+        {/* 💳 CARD */}
         {cycle && (
           <LinearGradient
             colors={theme.custom.gradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
             style={{
               borderRadius: 24,
               padding: 20,
+              marginTop: 16,
             }}
           >
             <Text style={{ color: "rgba(255,255,255,0.7)" }}>Total Budget</Text>
@@ -203,27 +215,7 @@ export default function Dashboard() {
               </View>
             </View>
 
-            {cycle.budget === 0 && (
-              <View
-                style={{
-                  marginTop: 12,
-                  backgroundColor: "rgba(250,204,21,0.15)",
-                  borderRadius: 12,
-                  padding: 12,
-                }}
-              >
-                <Text
-                  style={{
-                    color: "#facc15",
-                    fontWeight: "600",
-                  }}
-                  onPress={() => setShowBudgetModal(true)}
-                >
-                  ⚠️ No budget set. Tap to add your budget.
-                </Text>
-              </View>
-            )}
-
+            {/* PROGRESS */}
             <View style={{ marginTop: 16 }}>
               <View
                 style={{
@@ -237,11 +229,10 @@ export default function Dashboard() {
                 <View
                   style={{
                     position: "absolute",
-                    left: 0,
-                    top: 0,
-                    bottom: 0,
                     width: `${Math.min(progress * 100, 100)}%`,
                     backgroundColor: statusColor,
+                    top: 0,
+                    bottom: 0,
                     borderRadius: 999,
                   }}
                 />
@@ -260,15 +251,14 @@ export default function Dashboard() {
             </View>
           </LinearGradient>
         )}
-      </View>
 
-      {/* TRANSACTIONS */}
-      <View style={{ marginTop: 20 }}>
+        {/* 🧾 HEADER */}
         <View
           style={{
             flexDirection: "row",
             justifyContent: "space-between",
             alignItems: "center",
+            marginTop: 20,
             marginBottom: 10,
           }}
         >
@@ -279,7 +269,7 @@ export default function Dashboard() {
               color: theme.colors.onBackground,
             }}
           >
-            Transactions
+            RecentTransactions
           </Text>
 
           <Text
@@ -287,83 +277,25 @@ export default function Dashboard() {
               color: theme.colors.primary,
               fontWeight: "600",
             }}
-            onPress={() => router.push("/transactions")}
+            onPress={() => router.push("/expenses")}
           >
             View All
           </Text>
         </View>
-
-        {recentExpenses.length === 0 ? (
-          <View
-            style={{
-              alignItems: "center",
-              justifyContent: "center",
-              padding: 20,
-            }}
-          >
-            <Text style={{ color: theme.colors.onSurfaceVariant }}>
-              No transactions yet
-            </Text>
-          </View>
-        ) : (
-          recentExpenses.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              onPress={() => {
-                setSelectedTransaction(item);
-                setShowTransactionModal(true);
-              }}
-              activeOpacity={0.8}
-              style={{
-                backgroundColor: theme.colors.surface,
-                padding: 14,
-                borderRadius: 16,
-                marginBottom: 10,
-              }}
-            >
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <View>
-                  <Text
-                    style={{
-                      fontWeight: "600",
-                      color: theme.colors.onSurface,
-                    }}
-                  >
-                    {item.name || "Expense"}
-                  </Text>
-
-                  <Text
-                    style={{
-                      fontSize: 12,
-                      color: theme.colors.onSurfaceVariant,
-                      marginTop: 2,
-                    }}
-                  >
-                    {item.category} •{" "}
-                    {new Date(item.date_spent).toLocaleDateString()}
-                  </Text>
-                </View>
-
-                <Text
-                  style={{
-                    fontWeight: "bold",
-                    color: theme.colors.error,
-                  }}
-                >
-                  {formatCurrency(Number(item.amount))}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          ))
-        )}
       </View>
 
+      {/* 📋 SCROLLABLE LIST ONLY */}
+      <View style={{ flex: 1 }}>
+        <TransactionList
+          data={recentExpenses.slice(0, 2)}
+          onPressItem={(item) => {
+            setSelectedTransaction(item);
+            setShowTransactionModal(true);
+          }}
+        />
+      </View>
+
+      {/* MODALS */}
       <AddBudgetModal
         visible={showBudgetModal}
         onClose={() => setShowBudgetModal(false)}
@@ -384,6 +316,6 @@ export default function Dashboard() {
         onClose={() => setShowTransactionModal(false)}
         transaction={selectedTransaction}
       />
-    </ScrollView>
+    </View>
   );
 }
