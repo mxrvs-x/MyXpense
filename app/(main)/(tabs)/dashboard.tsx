@@ -1,12 +1,11 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { View } from "react-native";
+import { TouchableOpacity, View } from "react-native";
 import { Text } from "react-native-paper";
 
 import { useRefresh } from "@/context/RefreshContext";
 import { useTheme } from "@/types/theme";
-import AddBudgetModal from "../../../components/AddBudgetModal";
 import TransactionDetailsModal from "../../../components/TransactionDetailsModal";
 import TransactionList from "../../../components/TransactionList";
 import UpdateBudgetModal from "../../../components/UpdateBudgetModal";
@@ -18,9 +17,9 @@ export default function Dashboard() {
 
   const [total, setTotal] = useState(0);
   const [cycle, setCycle] = useState<any>(null);
-  const [showBudgetModal, setShowBudgetModal] = useState(false);
-  const [recentExpenses, setRecentExpenses] = useState<any[]>([]);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+
+  const [recentExpenses, setRecentExpenses] = useState<any[]>([]);
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
 
@@ -139,7 +138,6 @@ export default function Dashboard() {
         backgroundColor: theme.colors.background,
       }}
     >
-      {/* 🔒 FIXED HEADER */}
       <View style={{ paddingHorizontal: 16 }}>
         {/* 👋 GREETING */}
         <View style={{ marginTop: 10 }}>
@@ -175,22 +173,48 @@ export default function Dashboard() {
           >
             <Text style={{ color: "rgba(255,255,255,0.7)" }}>Total Budget</Text>
 
-            <Text
-              onPress={() => setShowUpdateModal(true)}
-              style={{
-                color: "white",
-                fontSize: 32,
-                fontWeight: "bold",
-                marginTop: 8,
-              }}
-            >
-              {formatCurrency(INCOME)}
-            </Text>
+            {/* 👉 TAP TO SET / UPDATE */}
+            <TouchableOpacity onPress={() => setShowUpdateModal(true)}>
+              <Text
+                style={{
+                  color: "white",
+                  fontSize: 32,
+                  fontWeight: "bold",
+                  marginTop: 8,
+                }}
+              >
+                {INCOME > 0 ? formatCurrency(INCOME) : "Tap to set budget"}
+              </Text>
+            </TouchableOpacity>
 
             <Text style={{ color: "rgba(255,255,255,0.7)" }}>
               {formatDate(cycle.start_date)} – {formatDate(cycle.end_date)}
             </Text>
 
+            {/* 🚨 INLINE WARNING */}
+            {INCOME === 0 && (
+              <TouchableOpacity
+                onPress={() => setShowUpdateModal(true)}
+                style={{
+                  marginTop: 12,
+                  backgroundColor: "rgba(255,255,255,0.15)",
+                  padding: 10,
+                  borderRadius: 10,
+                }}
+              >
+                <Text
+                  style={{
+                    color: "#fff",
+                    textAlign: "center",
+                    fontWeight: "600",
+                  }}
+                >
+                  ⚠️ Set your budget to start tracking
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* STATS */}
             <View
               style={{
                 flexDirection: "row",
@@ -269,7 +293,7 @@ export default function Dashboard() {
               color: theme.colors.onBackground,
             }}
           >
-            RecentTransactions
+            Recent Transactions
           </Text>
 
           <Text
@@ -284,7 +308,7 @@ export default function Dashboard() {
         </View>
       </View>
 
-      {/* 📋 SCROLLABLE LIST ONLY */}
+      {/* 📋 LIST */}
       <View style={{ flex: 1 }}>
         <TransactionList
           data={recentExpenses.slice(0, 2)}
@@ -296,13 +320,6 @@ export default function Dashboard() {
       </View>
 
       {/* MODALS */}
-      <AddBudgetModal
-        visible={showBudgetModal}
-        onClose={() => setShowBudgetModal(false)}
-        cycleId={cycle?.id}
-        onSaved={loadData}
-      />
-
       <UpdateBudgetModal
         visible={showUpdateModal}
         onClose={() => setShowUpdateModal(false)}

@@ -1,34 +1,119 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import { Text, TouchableOpacity, View } from "react-native";
+import { TouchableOpacity, View } from "react-native";
+import { Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+import { useTheme } from "@/types/theme";
 import { supabase } from "../../../lib/supabase";
 
 export default function Menu() {
+  const theme = useTheme();
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
-
-    // Optional: full reset (uncomment if needed)
     await AsyncStorage.clear();
-
     router.replace("/(auth)/login");
   };
 
   return (
-    <SafeAreaView>
-      <View style={{ padding: 20 }}>
-        <TouchableOpacity
-          onPress={handleLogout}
+    <SafeAreaView
+      style={{
+        flex: 1,
+        backgroundColor: theme.colors.background,
+      }}
+    >
+      <View style={{ paddingHorizontal: 16 }}>
+        <Text
           style={{
-            backgroundColor: "red",
-            padding: 15,
-            borderRadius: 10,
+            fontSize: 14,
+            color: theme.colors.onSurfaceVariant,
+            marginBottom: 10,
           }}
         >
-          <Text style={{ color: "#fff", textAlign: "center" }}>
-            Logout (Reset Session)
+          Financial Tools
+        </Text>
+        {/* CARD SECTION */}
+        <LinearGradient
+          colors={theme.custom.gradient}
+          style={{
+            borderRadius: 24,
+            padding: 20,
+          }}
+        >
+          {/* ARCHIVES */}
+          <TouchableOpacity
+            onPress={() => router.push("/archives")}
+            style={{ marginTop: 16 }}
+          >
+            <Text
+              style={{
+                color: "white",
+                fontSize: 16,
+                fontWeight: "600",
+              }}
+            >
+              📦 Cycle Archives
+            </Text>
+
+            <Text style={{ color: "rgba(255,255,255,0.6)" }}>
+              View past cycles and expenses
+            </Text>
+          </TouchableOpacity>
+
+          {/* COMPARE (future ready) */}
+          <TouchableOpacity
+            style={{ marginTop: 16 }}
+            onPress={() => router.push("/compare")}
+          >
+            <Text
+              style={{
+                color: "white",
+                fontSize: 16,
+                fontWeight: "600",
+              }}
+            >
+              📊 Compare Cycles
+            </Text>
+
+            <Text style={{ color: "rgba(255,255,255,0.6)" }}>
+              Analyze past vs current spending
+            </Text>
+          </TouchableOpacity>
+        </LinearGradient>
+
+        {/* ACTION SECTION */}
+        <View style={{ marginTop: 24 }}>
+          <Text
+            style={{
+              fontSize: 14,
+              color: theme.colors.onSurfaceVariant,
+              marginBottom: 10,
+            }}
+          >
+            Account
           </Text>
-        </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleLogout}
+            style={{
+              backgroundColor: theme.colors.surface,
+              padding: 16,
+              borderRadius: 16,
+            }}
+          >
+            <Text
+              style={{
+                color: theme.colors.error,
+                textAlign: "center",
+                fontWeight: "bold",
+              }}
+            >
+              Logout
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </SafeAreaView>
   );
