@@ -1,71 +1,127 @@
-import { useFocusEffect } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
+import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  RefreshControl,
+  ScrollView,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { Text } from "react-native-paper";
 
-import SalaryModal from "../../../components/SalaryModal";
+import { useRefresh } from "@/context/RefreshContext";
+import { useTheme } from "@/types/theme";
+import TransactionDetailsModal from "../../../components/TransactionDetailsModal";
+import TransactionList from "../../../components/TransactionList";
+import UpdateBudgetModal from "../../../components/UpdateBudgetModal";
 import { ensureCurrentCycle } from "../../../lib/cycle";
 import { supabase } from "../../../lib/supabase";
-import { styles } from "../../../styles/dashboard.styles";
 
 export default function Dashboard() {
+  const theme = useTheme();
+
   const [total, setTotal] = useState(0);
-
   const [cycle, setCycle] = useState<any>(null);
-  const [showSalaryModal, setShowSalaryModal] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
 
-  // 🔥 Fetch expenses
-  const fetchExpenses = async (cycleId: string) => {
-    const { data, error } = await supabase
-      .from("expenses")
-      .select("*")
-      .eq("cycle_id", cycleId)
-      .order("created_at", { ascending: false });
+  const [recentExpenses, setRecentExpenses] = useState<any[]>([]);
+  const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
+  const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-    if (error) {
-      console.log(error.message);
-      return;
+  const { refreshKey } = useRefresh();
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("en-PH", {
+      style: "currency",
+      currency: "PHP",
+      minimumFractionDigits: 2,
+    }).format(value || 0);
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+
+    const currentCycle = await ensureCurrentCycle();
+    if (currentCycle) {
+      setCycle(currentCycle);
+      await fetchExpenses(currentCycle.id);
     }
 
-    const expenseData = data || [];
+    setRefreshing(false);
+  };
 
-    // Total
-    const totalSpent = expenseData.reduce(
+  const fetchExpenses = async (cycleId: string) => {
+    const { data: allData } = await supabase
+      .from("expenses")
+      .select("amount")
+      .eq("cycle_id", cycleId);
+
+    const totalSpent = (allData || []).reduce(
       (sum, item) => sum + Number(item.amount),
       0,
     );
+
     setTotal(totalSpent);
 
-    // Category grouping
-    const grouped: any = {};
-    expenseData.forEach((item) => {
-      if (!grouped[item.category]) grouped[item.category] = 0;
-      grouped[item.category] += Number(item.amount);
-    });
+    const { data: recentData } = await supabase
+      .from("expenses")
+      .select("*")
+      .eq("cycle_id", cycleId)
+      .order("date_spent", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(3);
+
+    setRecentExpenses(recentData || []);
   };
 
-  // 🔥 Load cycle + expenses
   const loadData = useCallback(async () => {
     const currentCycle = await ensureCurrentCycle();
     if (!currentCycle) return;
 
     setCycle(currentCycle);
-    fetchExpenses(currentCycle.id);
   }, []);
 
-  // ✅ First load
+  useEffect(() => {
+    if (cycle?.id) {
+      fetchExpenses(cycle.id);
+    }
+  }, [refreshKey, cycle?.id]);
+
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  // 🔄 Refresh when screen is focused
   useFocusEffect(
     useCallback(() => {
       loadData();
     }, [loadData]),
   );
 
-  // 📅 Format date
+  useEffect(() => {
+    if (!cycle?.id) return;
+
+    const channel = supabase
+      .channel("expenses-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "expenses",
+          filter: `cycle_id=eq.${cycle.id}`,
+        },
+        () => {
+          fetchExpenses(cycle.id);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [cycle]);
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-PH", {
@@ -74,62 +130,227 @@ export default function Dashboard() {
     });
   };
 
-  const INCOME = cycle?.salary || 0;
+  const INCOME = Number(cycle?.budget || 0);
   const REMAINING = INCOME - total;
+  const progress = INCOME > 0 ? total / INCOME : 0;
+
+  const isOverBudget = total > INCOME;
+  const isNearLimit = progress > 0.8 && progress <= 1;
+
+  const statusText = isOverBudget
+    ? "Over budget"
+    : isNearLimit
+      ? "Close to limit"
+      : "On track";
+
+  const statusColor = isOverBudget
+    ? theme.colors.error
+    : isNearLimit
+      ? "#facc15"
+      : theme.colors.outline;
 
   return (
-    <ScrollView style={styles.container}>
-      <SafeAreaView>
-        {/* 📅 Current Cycle */}
-        {cycle && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Current Cycle</Text>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: theme.colors.background }}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
+      <View style={{ paddingHorizontal: 16 }}>
+        {/* 👋 GREETING */}
+        <View style={{ marginTop: 10 }}>
+          <Text
+            style={{
+              fontSize: 14,
+              color: theme.colors.onSurfaceVariant,
+            }}
+          >
+            Hello,
+          </Text>
 
-            <Text style={styles.item}>
+          <Text
+            style={{
+              fontSize: 22,
+              fontWeight: "bold",
+              color: theme.colors.onBackground,
+            }}
+          >
+            Marviquint!
+          </Text>
+        </View>
+
+        {/* 💳 CARD */}
+        {cycle && (
+          <LinearGradient
+            colors={theme.custom.gradient}
+            style={{
+              borderRadius: 24,
+              padding: 20,
+              marginTop: 16,
+            }}
+          >
+            <Text style={{ color: "rgba(255,255,255,0.7)" }}>Total Budget</Text>
+
+            {/* 👉 TAP TO SET / UPDATE */}
+            <TouchableOpacity onPress={() => setShowUpdateModal(true)}>
+              <Text
+                style={{
+                  color: "white",
+                  fontSize: 32,
+                  fontWeight: "bold",
+                  marginTop: 8,
+                }}
+              >
+                {INCOME > 0 ? formatCurrency(INCOME) : "Tap to set budget"}
+              </Text>
+            </TouchableOpacity>
+
+            <Text style={{ color: "rgba(255,255,255,0.7)" }}>
               {formatDate(cycle.start_date)} – {formatDate(cycle.end_date)}
             </Text>
 
-            <Text style={styles.item}>Salary: ₱ {cycle.salary}</Text>
-          </View>
+            {/* 🚨 INLINE WARNING */}
+            {INCOME === 0 && (
+              <TouchableOpacity
+                onPress={() => setShowUpdateModal(true)}
+                style={{
+                  marginTop: 12,
+                  backgroundColor: "rgba(255,255,255,0.15)",
+                  padding: 10,
+                  borderRadius: 10,
+                }}
+              >
+                <Text
+                  style={{
+                    color: "#fff",
+                    textAlign: "center",
+                    fontWeight: "600",
+                  }}
+                >
+                  ⚠️ Set your budget to start tracking
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* STATS */}
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                marginTop: 16,
+              }}
+            >
+              <View>
+                <Text style={{ color: "rgba(255,255,255,0.7)" }}>
+                  Remaining
+                </Text>
+                <Text style={{ color: "white", fontWeight: "bold" }}>
+                  {formatCurrency(REMAINING)}
+                </Text>
+              </View>
+
+              <View>
+                <Text style={{ color: "rgba(255,255,255,0.7)" }}>Spent</Text>
+                <Text style={{ color: "white", fontWeight: "bold" }}>
+                  {formatCurrency(total)}
+                </Text>
+              </View>
+            </View>
+
+            {/* PROGRESS */}
+            <View style={{ marginTop: 16 }}>
+              <View
+                style={{
+                  height: 22,
+                  borderRadius: 999,
+                  backgroundColor: "rgba(255,255,255,0.15)",
+                  overflow: "hidden",
+                  justifyContent: "center",
+                }}
+              >
+                <View
+                  style={{
+                    position: "absolute",
+                    width: `${Math.min(progress * 100, 100)}%`,
+                    backgroundColor: statusColor,
+                    top: 0,
+                    bottom: 0,
+                    borderRadius: 999,
+                  }}
+                />
+
+                <Text
+                  style={{
+                    textAlign: "center",
+                    color: "white",
+                    fontSize: 12,
+                    fontWeight: "700",
+                  }}
+                >
+                  {Math.round(progress * 100)}% - {statusText}
+                </Text>
+              </View>
+            </View>
+          </LinearGradient>
         )}
 
-        {/* ❗ Prompt if no salary */}
-        {cycle && cycle.salary === 0 && (
-          <TouchableOpacity
-            style={[styles.card, { borderColor: "orange", borderWidth: 1 }]}
-            onPress={() => setShowSalaryModal(true)}
+        {/* 🧾 HEADER */}
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginTop: 20,
+            marginBottom: 10,
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 16,
+              fontWeight: "bold",
+              color: theme.colors.onBackground,
+            }}
           >
-            <Text style={{ color: "orange" }}>
-              ⚠️ Set your salary for this cycle
-            </Text>
-          </TouchableOpacity>
-        )}
+            Recent Transactions
+          </Text>
 
-        {/* 🔥 Remaining */}
-        <View style={styles.cardPrimary}>
-          <Text style={styles.cardTitle}>Remaining Balance</Text>
-          <Text style={styles.amount}>₱ {REMAINING}</Text>
+          <Text
+            style={{
+              color: theme.colors.primary,
+              fontWeight: "600",
+            }}
+            onPress={() => router.push("/expenses")}
+          >
+            View All
+          </Text>
         </View>
+      </View>
 
-        {/* 💰 Summary */}
-        <View style={styles.row}>
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Spent</Text>
-            <Text style={styles.amountSmall}>₱ {total}</Text>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Salary</Text>
-            <Text style={styles.amountSmall}>₱ {INCOME}</Text>
-          </View>
-        </View>
-        <SalaryModal
-          visible={showSalaryModal}
-          onClose={() => setShowSalaryModal(false)}
-          cycleId={cycle?.id}
-          onSaved={loadData}
+      {/* 📋 LIST */}
+      <View style={{ flex: 1 }}>
+        <TransactionList
+          data={recentExpenses.slice(0, 2)}
+          onPressItem={(item) => {
+            setSelectedTransaction(item);
+            setShowTransactionModal(true);
+          }}
         />
-      </SafeAreaView>
+      </View>
+
+      {/* MODALS */}
+      <UpdateBudgetModal
+        visible={showUpdateModal}
+        onClose={() => setShowUpdateModal(false)}
+        cycleId={cycle?.id}
+        currentBudget={INCOME}
+        onUpdated={loadData}
+      />
+
+      <TransactionDetailsModal
+        visible={showTransactionModal}
+        onClose={() => setShowTransactionModal(false)}
+        transaction={selectedTransaction}
+      />
     </ScrollView>
   );
 }

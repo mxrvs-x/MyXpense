@@ -1,20 +1,24 @@
 import "react-native-url-polyfill/auto";
 
-import * as LocalAuthentication from "expo-local-authentication";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
-  Text,
+  Image,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+import { useTheme } from "@/types/theme";
 import { supabase } from "../../lib/supabase";
-import { styles } from "../../styles/login.styles";
 
 export default function Login() {
+  const theme = useTheme();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -39,82 +43,106 @@ export default function Login() {
     router.replace("/(main)/(tabs)/dashboard");
   };
 
-  const handleBiometric = async () => {
-    const { data } = await supabase.auth.getSession();
-    const session = data.session;
-
-    if (!session) {
-      alert("Please login first using email/password");
-      return;
-    }
-
-    const hasHardware = await LocalAuthentication.hasHardwareAsync();
-    const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-
-    if (!hasHardware || !isEnrolled) {
-      alert("Biometric not available");
-      return;
-    }
-
-    const result = await LocalAuthentication.authenticateAsync({
-      promptMessage: "Unlock DevBudget",
-    });
-
-    if (result.success) {
-      router.replace("/(main)/(tabs)/dashboard");
-    } else {
-      alert("Authentication Failed!");
-    }
-  };
-
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.card}>
-        <Text style={styles.title}>Welcome Back 👋</Text>
-        <Text style={styles.subtitle}>
-          Login to continue managing your budget
-        </Text>
-
-        <TextInput
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          style={styles.input}
-        />
-
-        <TextInput
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          style={styles.input}
-        />
-
-        <TouchableOpacity
-          style={styles.button}
-          onPress={handleLogin}
-          disabled={loading}
+    <SafeAreaView
+      style={{
+        flex: 1,
+        backgroundColor: theme.colors.background,
+      }}
+    >
+      <View style={{ paddingHorizontal: 16, flex: 1 }}>
+        {/* 👋 HEADER WITH LOGO */}
+        <View
+          style={{
+            marginTop: 20,
+            alignItems: "center",
+          }}
         >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Login</Text>
-          )}
-        </TouchableOpacity>
+          <Image
+            source={require("../../assets/images/MyXpense.png")}
+            style={{
+              width: 120,
+              height: 120,
+              marginBottom: 12,
+              resizeMode: "contain",
+            }}
+          />
 
-        <View style={styles.dividerContainer}>
-          <View style={styles.divider} />
-          <Text style={styles.dividerText}>OR</Text>
-          <View style={styles.divider} />
+          <Text
+            style={{
+              fontSize: 26,
+              fontWeight: "bold",
+              color: theme.colors.onBackground,
+            }}
+          >
+            MyXpense
+          </Text>
         </View>
 
-        <TouchableOpacity
-          style={[styles.button, { backgroundColor: "#3b82f6" }]}
-          onPress={handleBiometric}
+        {/* 💳 LOGIN CARD */}
+        <LinearGradient
+          colors={theme.custom.gradient}
+          style={{
+            borderRadius: 24,
+            padding: 20,
+            marginTop: 24,
+          }}
         >
-          <Text style={styles.buttonText}>🔐 Use Biometrics</Text>
-        </TouchableOpacity>
+          <Text style={{ color: "rgba(255,255,255,0.7)" }}>
+            Login to your account
+          </Text>
+
+          {/* EMAIL */}
+          <TextInput
+            placeholder="Email"
+            placeholderTextColor="rgba(255,255,255,0.5)"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            style={{
+              marginTop: 16,
+              backgroundColor: "rgba(255,255,255,0.15)",
+              padding: 12,
+              borderRadius: 12,
+              color: "#fff",
+            }}
+          />
+
+          {/* PASSWORD */}
+          <TextInput
+            placeholder="Password"
+            placeholderTextColor="rgba(255,255,255,0.5)"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            style={{
+              marginTop: 12,
+              backgroundColor: "rgba(255,255,255,0.15)",
+              padding: 12,
+              borderRadius: 12,
+              color: "#fff",
+            }}
+          />
+
+          {/* LOGIN BUTTON */}
+          <TouchableOpacity
+            onPress={handleLogin}
+            disabled={loading}
+            style={{
+              marginTop: 20,
+              backgroundColor: "#fff",
+              padding: 14,
+              borderRadius: 14,
+              alignItems: "center",
+            }}
+          >
+            {loading ? (
+              <ActivityIndicator color="#000" />
+            ) : (
+              <Text style={{ fontWeight: "bold", color: "#000" }}>Login</Text>
+            )}
+          </TouchableOpacity>
+        </LinearGradient>
       </View>
     </SafeAreaView>
   );
