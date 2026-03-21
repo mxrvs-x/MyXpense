@@ -17,6 +17,11 @@ export default function CompareCycles() {
   const [currentTotal, setCurrentTotal] = useState(0);
   const [previousTotal, setPreviousTotal] = useState(0);
 
+  // 🔥 AI STATE
+  const [aiInsights, setAiInsights] = useState<string[]>([]);
+  const [loadingAI, setLoadingAI] = useState(false);
+  const [aiError, setAiError] = useState(false);
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-PH", {
       style: "currency",
@@ -39,15 +44,13 @@ export default function CompareCycles() {
   };
 
   const loadData = async () => {
-    // 🔹 CURRENT
     const current = await ensureCurrentCycle();
     setCurrentCycle(current);
 
     if (current?.id) {
-      fetchTotal(current.id, setCurrentTotal);
+      await fetchTotal(current.id, setCurrentTotal);
     }
 
-    // 🔹 PREVIOUS (latest past cycle)
     const now = new Date();
 
     const { data } = await supabase
@@ -59,7 +62,75 @@ export default function CompareCycles() {
 
     if (data && data.length > 0) {
       setPreviousCycle(data[0]);
-      fetchTotal(data[0].id, setPreviousTotal);
+      await fetchTotal(data[0].id, setPreviousTotal);
+    }
+  };
+
+  // 🔥 AI FUNCTION (NO FALLBACK)
+  const fetchAIInsights = async () => {
+    try {
+      setLoadingAI(true);
+      setAiError(false);
+
+      const prompt = `
+You are a smart financial assistant inside a mobile expense tracking app.
+
+Analyze the user's spending data and provide personalized insights.
+
+DATA:
+Current Cycle:
+- Total Spent: ₱${currentTotal}
+- Budget: ₱${currentCycle?.budget}
+- Remaining: ₱${currentCycle?.budget - currentTotal}
+
+Previous Cycle:
+- Total Spent: ₱${previousTotal}
+- Budget: ₱${previousCycle?.budget}
+- Remaining: ₱${previousCycle?.budget - previousTotal}
+
+INSTRUCTIONS:
+- Give exactly 3 to 5 insights
+- Each insight must be 1 sentence only
+- Be specific (mention numbers or comparisons)
+- Focus on spending behavior (overspending, saving, trends)
+- Include at least 1 actionable advice
+- Use a friendly, modern tone
+
+FORMAT:
+Return ONLY bullet points like this:
+• Insight 1
+• Insight 2
+• Insight 3
+`;
+
+      const res = await fetch(
+        "https://ckntamtouzpuevbmpgav.supabase.co/functions/v1/gemini-ai",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ prompt }),
+        },
+      );
+
+      const data = await res.json();
+
+      if (!data.response) {
+        throw new Error("No AI response");
+      }
+
+      const insights = data.response
+        .split("\n")
+        .map((line: string) => line.replace(/^•\s*/, "").trim())
+        .filter((line: string) => line.length > 0);
+
+      setAiInsights(insights);
+    } catch (err) {
+      console.log("AI error:", err);
+      setAiError(true);
+    } finally {
+      setLoadingAI(false);
     }
   };
 
@@ -67,36 +138,11 @@ export default function CompareCycles() {
     loadData();
   }, []);
 
-  // 🔥 ANALYTICS
-  const getInsights = () => {
-    if (!currentCycle || !previousCycle) return [];
-
-    const diff = currentTotal - previousTotal;
-    const percent = previousTotal > 0 ? (diff / previousTotal) * 100 : 0;
-
-    const insights = [];
-
-    if (diff > 0) {
-      insights.push(`⚠️ You spent ${percent.toFixed(1)}% more than last cycle`);
-    } else if (diff < 0) {
-      insights.push(
-        `✅ You reduced spending by ${Math.abs(percent).toFixed(1)}%`,
-      );
-    } else {
-      insights.push("No change in spending");
+  useEffect(() => {
+    if (currentCycle && previousCycle) {
+      fetchAIInsights();
     }
-
-    // Budget comparison
-    if (currentTotal > currentCycle?.budget) {
-      insights.push("🚨 You are over budget this cycle");
-    }
-
-    if (currentTotal < previousTotal) {
-      insights.push("💰 You're saving more this cycle");
-    }
-
-    return insights;
-  };
+  }, [currentCycle, previousCycle]);
 
   if (!currentCycle || !previousCycle) {
     return (
@@ -108,7 +154,6 @@ export default function CompareCycles() {
 
   const currentRemaining = currentCycle.budget - currentTotal;
   const previousRemaining = previousCycle.budget - previousTotal;
-
   const difference = currentTotal - previousTotal;
 
   return (
@@ -119,7 +164,6 @@ export default function CompareCycles() {
       }}
     >
       <View style={{ padding: 16 }}>
-        {/* HEADER */}
         <Text
           style={{
             fontSize: 22,
@@ -130,7 +174,6 @@ export default function CompareCycles() {
           Compare Cycles
         </Text>
 
-        {/* CARD */}
         <LinearGradient
           colors={theme.custom.gradient}
           style={{
@@ -174,20 +217,34 @@ export default function CompareCycles() {
             </Text>
           </View>
 
-          {/* INSIGHTS */}
+          {/* 🔥 AI INSIGHTS ONLY */}
           <View style={{ marginTop: 16 }}>
-            {getInsights().map((insight, index) => (
-              <Text
-                key={index}
-                style={{
-                  color: "white",
-                  fontWeight: "600",
-                  marginBottom: 4,
-                }}
-              >
-                {insight}
+            <Text style={{ color: "rgba(255,255,255,0.7)", marginBottom: 6 }}>
+              AI Insights
+            </Text>
+
+            {loadingAI ? (
+              <Text style={{ color: "white" }}>
+                🤖 Analyzing your spending...
               </Text>
-            ))}
+            ) : aiError ? (
+              <Text style={{ color: "#f87171" }}>
+                Failed to generate insights. Please try again.
+              </Text>
+            ) : (
+              aiInsights.map((insight, index) => (
+                <Text
+                  key={index}
+                  style={{
+                    color: "white",
+                    fontWeight: "600",
+                    marginBottom: 4,
+                  }}
+                >
+                  • {insight}
+                </Text>
+              ))
+            )}
           </View>
         </LinearGradient>
       </View>
