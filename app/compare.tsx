@@ -17,10 +17,23 @@ export default function CompareCycles() {
   const [currentTotal, setCurrentTotal] = useState(0);
   const [previousTotal, setPreviousTotal] = useState(0);
 
-  // 🔥 AI STATE
   const [aiInsights, setAiInsights] = useState<string[]>([]);
   const [loadingAI, setLoadingAI] = useState(false);
   const [aiError, setAiError] = useState(false);
+
+  const [dots, setDots] = useState("");
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+
+    if (loadingAI) {
+      interval = setInterval(() => {
+        setDots((prev) => (prev.length >= 3 ? "" : prev + "."));
+      }, 400);
+    }
+
+    return () => clearInterval(interval);
+  }, [loadingAI]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-PH", {
@@ -66,41 +79,41 @@ export default function CompareCycles() {
     }
   };
 
-  // 🔥 AI FUNCTION (NO FALLBACK)
   const fetchAIInsights = async () => {
     try {
       setLoadingAI(true);
       setAiError(false);
 
       const prompt = `
-You are a smart financial assistant inside a mobile expense tracking app.
+You are a financial AI inside a mobile expense app.
 
-Analyze the user's spending data and provide personalized insights.
+Analyze the user's spending and return EXACTLY 6 items:
+- 3 insights about spending
+- 3 actionable tips for the CURRENT cycle
+
+RULES:
+- Max 12 words per line
+- Use bullet format (•)
+- Be concise and professional
+- No emojis, no fluff
+- Focus on CURRENT cycle behavior
 
 DATA:
-Current Cycle:
-- Total Spent: ₱${currentTotal}
-- Budget: ₱${currentCycle?.budget}
-- Remaining: ₱${currentCycle?.budget - currentTotal}
+Current:
+Spent: ₱${currentTotal}
+Budget: ₱${currentCycle?.budget}
+Remaining: ₱${currentCycle?.budget - currentTotal}
 
-Previous Cycle:
-- Total Spent: ₱${previousTotal}
-- Budget: ₱${previousCycle?.budget}
-- Remaining: ₱${previousCycle?.budget - previousTotal}
-
-INSTRUCTIONS:
-- Give exactly 3 to 5 insights
-- Each insight must be 1 sentence only
-- Be specific (mention numbers or comparisons)
-- Focus on spending behavior (overspending, saving, trends)
-- Include at least 1 actionable advice
-- Use a friendly, modern tone
+Previous:
+Spent: ₱${previousTotal}
 
 FORMAT:
-Return ONLY bullet points like this:
-• Insight 1
-• Insight 2
-• Insight 3
+• Insight
+• Insight
+• Insight
+• Tip
+• Tip
+• Tip
 `;
 
       const res = await fetch(
@@ -122,8 +135,9 @@ Return ONLY bullet points like this:
 
       const insights = data.response
         .split("\n")
-        .map((line: string) => line.replace(/^•\s*/, "").trim())
-        .filter((line: string) => line.length > 0);
+        .map((line: string) => line.replace(/^[-•\d.\s]+/, "").trim())
+        .filter((line: string) => line.length > 0)
+        .slice(0, 6);
 
       setAiInsights(insights);
     } catch (err) {
@@ -144,17 +158,18 @@ Return ONLY bullet points like this:
     }
   }, [currentCycle, previousCycle]);
 
-  if (!currentCycle || !previousCycle) {
-    return (
-      <SafeAreaView>
-        <Text style={{ padding: 20 }}>Loading comparison...</Text>
-      </SafeAreaView>
-    );
-  }
+  // ✅ ADDED SAFE FLAGS
+  const hasCurrent = !!currentCycle;
+  const hasPrevious = !!previousCycle;
 
-  const currentRemaining = currentCycle.budget - currentTotal;
-  const previousRemaining = previousCycle.budget - previousTotal;
-  const difference = currentTotal - previousTotal;
+  const currentRemaining = hasCurrent ? currentCycle.budget - currentTotal : 0;
+
+  const previousRemaining = hasPrevious
+    ? previousCycle.budget - previousTotal
+    : 0;
+
+  const difference =
+    hasCurrent && hasPrevious ? currentTotal - previousTotal : 0;
 
   return (
     <SafeAreaView
@@ -184,11 +199,17 @@ Return ONLY bullet points like this:
         >
           {/* CURRENT */}
           <Text style={{ color: "rgba(255,255,255,0.7)" }}>Current Cycle</Text>
+
           <Text style={{ color: "white", fontWeight: "bold" }}>
-            Spent: {formatCurrency(currentTotal)}
+            {hasCurrent
+              ? `Spent: ${formatCurrency(currentTotal)}`
+              : "No current cycle found"}
           </Text>
+
           <Text style={{ color: "white" }}>
-            Remaining: {formatCurrency(currentRemaining)}
+            {hasCurrent
+              ? `Remaining: ${formatCurrency(currentRemaining)}`
+              : "Create a cycle to start tracking"}
           </Text>
 
           {/* PREVIOUS */}
@@ -196,54 +217,122 @@ Return ONLY bullet points like this:
             <Text style={{ color: "rgba(255,255,255,0.7)" }}>
               Previous Cycle
             </Text>
+
             <Text style={{ color: "white", fontWeight: "bold" }}>
-              Spent: {formatCurrency(previousTotal)}
+              {hasPrevious
+                ? `Spent: ${formatCurrency(previousTotal)}`
+                : "No previous cycle found"}
             </Text>
+
             <Text style={{ color: "white" }}>
-              Remaining: {formatCurrency(previousRemaining)}
+              {hasPrevious
+                ? `Remaining: ${formatCurrency(previousRemaining)}`
+                : "Complete a cycle to compare"}
             </Text>
           </View>
 
           {/* DIFFERENCE */}
           <View style={{ marginTop: 16 }}>
             <Text style={{ color: "rgba(255,255,255,0.7)" }}>Difference</Text>
+
             <Text
               style={{
-                color: difference > 0 ? "#f87171" : "#4ade80",
+                color:
+                  hasCurrent && hasPrevious
+                    ? difference > 0
+                      ? "#f87171"
+                      : "#4ade80"
+                    : "white",
                 fontWeight: "bold",
               }}
             >
-              {formatCurrency(difference)}
+              {hasCurrent && hasPrevious
+                ? formatCurrency(difference)
+                : "Not available"}
             </Text>
           </View>
 
-          {/* 🔥 AI INSIGHTS ONLY */}
+          {/* AI */}
           <View style={{ marginTop: 16 }}>
-            <Text style={{ color: "rgba(255,255,255,0.7)", marginBottom: 6 }}>
+            <Text
+              style={{
+                color: "rgba(255,255,255,0.7)",
+                marginBottom: 6,
+              }}
+            >
               AI Insights
             </Text>
 
-            {loadingAI ? (
+            {!hasCurrent || !hasPrevious ? (
               <Text style={{ color: "white" }}>
-                🤖 Analyzing your spending...
+                Insights available after at least one completed cycle.
+              </Text>
+            ) : loadingAI ? (
+              <Text style={{ color: "white" }}>
+                AI Analyzing your spending{dots}
               </Text>
             ) : aiError ? (
               <Text style={{ color: "#f87171" }}>
-                Failed to generate insights. Please try again.
+                Failed to generate insights.
               </Text>
             ) : (
-              aiInsights.map((insight, index) => (
-                <Text
-                  key={index}
-                  style={{
-                    color: "white",
-                    fontWeight: "600",
-                    marginBottom: 4,
-                  }}
-                >
-                  • {insight}
-                </Text>
-              ))
+              aiInsights.map((insight, index) => {
+                const isTip = index >= 3;
+
+                return (
+                  <View key={index}>
+                    {index === 0 && (
+                      <Text
+                        style={{
+                          color: "rgba(255,255,255,0.6)",
+                          marginTop: 8,
+                        }}
+                      >
+                        Insights
+                      </Text>
+                    )}
+
+                    {index === 3 && (
+                      <Text
+                        style={{
+                          color: "rgba(255,255,255,0.6)",
+                          marginTop: 8,
+                        }}
+                      >
+                        Tips
+                      </Text>
+                    )}
+
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        marginBottom: 6,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: isTip ? "#facc15" : "#4ade80",
+                          marginRight: 6,
+                          fontWeight: "bold",
+                        }}
+                      >
+                        {isTip ? "💡" : "•"}
+                      </Text>
+
+                      <Text
+                        style={{
+                          color: "white",
+                          fontWeight: isTip ? "600" : "500",
+                          flex: 1,
+                        }}
+                      >
+                        {insight}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })
             )}
           </View>
         </LinearGradient>

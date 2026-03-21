@@ -29,6 +29,12 @@ export default function ExpenseCalculator() {
   const [totalInput, setTotalInput] = useState(0);
   const [calculatedRemaining, setCalculatedRemaining] = useState(0);
 
+  // ✅ AI states
+  const [aiInsights, setAiInsights] = useState<string[]>([]);
+  const [loadingAI, setLoadingAI] = useState(false);
+  const [aiError, setAiError] = useState(false);
+  const [dots, setDots] = useState("");
+
   const insets = useSafeAreaInsets();
 
   const formatCurrency = (value: number) => {
@@ -61,6 +67,18 @@ export default function ExpenseCalculator() {
     loadData();
   }, []);
 
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+
+    if (loadingAI) {
+      interval = setInterval(() => {
+        setDots((prev) => (prev.length >= 3 ? "" : prev + "."));
+      }, 400);
+    }
+
+    return () => clearInterval(interval);
+  }, [loadingAI]);
+
   const INCOME = Number(cycle?.budget || 0);
   const REMAINING = INCOME - totalSpent;
 
@@ -79,15 +97,80 @@ export default function ExpenseCalculator() {
     setExpenses(updated.length ? updated : [""]);
   };
 
-  const handleCalculate = () => {
+  // 🔥 GEMINI AI FUNCTION
+  const fetchAIInsights = async (plannedTotal: number, remaining: number) => {
+    try {
+      setLoadingAI(true);
+      setAiError(false);
+
+      const prompt = `
+You are a financial assistant inside a mobile app.
+
+Provide EXACTLY 4 short insights about the user's planned expenses.
+
+RULES:
+- Max 10 words per line
+- Bullet format
+- Practical and actionable
+- No emojis
+
+DATA:
+Budget: ₱${INCOME}
+Already spent: ₱${totalSpent}
+Planned spending: ₱${plannedTotal}
+Remaining after plan: ₱${remaining}
+
+FORMAT:
+• Insight
+• Insight
+• Tip
+• Tip
+`;
+
+      const res = await fetch(
+        "https://ckntamtouzpuevbmpgav.supabase.co/functions/v1/gemini-ai",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ prompt }),
+        },
+      );
+
+      const data = await res.json();
+
+      if (!data.response) throw new Error("No AI response");
+
+      const insights = data.response
+        .split("\n")
+        .map((line: string) => line.replace(/^[-•\d.\s]+/, "").trim())
+        .filter((line: string) => line.length > 0)
+        .slice(0, 4);
+
+      setAiInsights(insights);
+    } catch (err) {
+      console.log(err);
+      setAiError(true);
+    } finally {
+      setLoadingAI(false);
+    }
+  };
+
+  const handleCalculate = async () => {
     const total = expenses.reduce((sum, val) => {
       const num = Number(val);
       return sum + (isNaN(num) ? 0 : num);
     }, 0);
 
+    const remaining = REMAINING - total;
+
     setTotalInput(total);
-    setCalculatedRemaining(REMAINING - total);
+    setCalculatedRemaining(remaining);
     setCalculated(true);
+
+    // 🔥 trigger AI
+    await fetchAIInsights(total, remaining);
   };
 
   const handleReset = () => {
@@ -95,6 +178,7 @@ export default function ExpenseCalculator() {
     setCalculated(false);
     setTotalInput(0);
     setCalculatedRemaining(0);
+    setAiInsights([]);
   };
 
   return (
@@ -152,7 +236,6 @@ export default function ExpenseCalculator() {
           >
             {!calculated ? (
               <>
-                {/* INPUT MODE */}
                 <Text
                   style={{
                     color: theme.colors.onSurfaceVariant,
@@ -175,7 +258,7 @@ export default function ExpenseCalculator() {
                       keyboardType="numeric"
                       value={value}
                       onChangeText={(text) => updateExpense(text, index)}
-                      placeholder={`Item ${index + 1}`}
+                      placeholder={`Amount ${index + 1}`}
                       placeholderTextColor={theme.colors.outline}
                       style={{
                         flex: 1,
@@ -205,7 +288,7 @@ export default function ExpenseCalculator() {
                       marginTop: 8,
                     }}
                   >
-                    + Add another item
+                    + Add another amount
                   </Text>
                 </TouchableOpacity>
 
@@ -226,7 +309,6 @@ export default function ExpenseCalculator() {
               </>
             ) : (
               <>
-                {/* RESULT MODE */}
                 <Text style={{ color: theme.colors.onSurfaceVariant }}>
                   Total Planned Expense
                 </Text>
@@ -269,7 +351,25 @@ export default function ExpenseCalculator() {
                   </Text>
                 )}
 
-                {/* 🔁 RESET BUTTON */}
+                {/* 🔥 AI INSIGHTS */}
+                <View style={{ marginTop: 20 }}>
+                  <Text style={{ marginBottom: 6 }}>AI Insights</Text>
+
+                  {loadingAI ? (
+                    <Text>AI Analyzing your planned expense {dots}</Text>
+                  ) : aiError ? (
+                    <Text style={{ color: theme.colors.error }}>
+                      Failed to load insights
+                    </Text>
+                  ) : (
+                    aiInsights.map((item, i) => (
+                      <Text key={i} style={{ marginBottom: 4 }}>
+                        • {item}
+                      </Text>
+                    ))
+                  )}
+                </View>
+
                 <TouchableOpacity
                   onPress={handleReset}
                   style={{

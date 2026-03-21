@@ -1,12 +1,18 @@
+// context/RefreshContext.tsx
 import { createContext, useContext, useState } from "react";
 
-const RefreshContext = createContext<any>(null);
+type RefreshContextType = {
+  refreshKey: number;
+  triggerRefresh: () => void;
+};
 
-export function RefreshProvider({ children }: any) {
+const RefreshContext = createContext<RefreshContextType | null>(null);
+
+export function RefreshProvider({ children }: { children: React.ReactNode }) {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const triggerRefresh = () => {
-    setRefreshKey((prev: number) => prev + 1);
+    setRefreshKey((prev) => prev + 1);
   };
 
   return (
@@ -17,5 +23,9 @@ export function RefreshProvider({ children }: any) {
 }
 
 export function useRefresh() {
-  return useContext(RefreshContext);
+  const context = useContext(RefreshContext);
+  if (!context) {
+    throw new Error("useRefresh must be used inside RefreshProvider");
+  }
+  return context;
 }

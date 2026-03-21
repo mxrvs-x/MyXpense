@@ -1,7 +1,12 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { TouchableOpacity, View } from "react-native";
+import {
+  RefreshControl,
+  ScrollView,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { Text } from "react-native-paper";
 
 import { useRefresh } from "@/context/RefreshContext";
@@ -22,6 +27,7 @@ export default function Dashboard() {
   const [recentExpenses, setRecentExpenses] = useState<any[]>([]);
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const { refreshKey } = useRefresh();
 
@@ -31,6 +37,18 @@ export default function Dashboard() {
       currency: "PHP",
       minimumFractionDigits: 2,
     }).format(value || 0);
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+
+    const currentCycle = await ensureCurrentCycle();
+    if (currentCycle) {
+      setCycle(currentCycle);
+      await fetchExpenses(currentCycle.id);
+    }
+
+    setRefreshing(false);
   };
 
   const fetchExpenses = async (cycleId: string) => {
@@ -132,11 +150,11 @@ export default function Dashboard() {
       : theme.colors.outline;
 
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: theme.colors.background,
-      }}
+    <ScrollView
+      style={{ flex: 1, backgroundColor: theme.colors.background }}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
     >
       <View style={{ paddingHorizontal: 16 }}>
         {/* 👋 GREETING */}
@@ -333,6 +351,6 @@ export default function Dashboard() {
         onClose={() => setShowTransactionModal(false)}
         transaction={selectedTransaction}
       />
-    </View>
+    </ScrollView>
   );
 }

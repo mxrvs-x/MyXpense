@@ -1,5 +1,5 @@
 import { useTheme } from "@/types/theme";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Modal, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { supabase } from "../lib/supabase";
 
@@ -19,17 +19,47 @@ export default function UpdateBudgetModal({
   onUpdated,
 }: Props) {
   const theme = useTheme();
-  const [budget, setBudget] = useState(String(currentBudget || ""));
+
+  const textColor = theme.colors.onSurface;
+  const placeholderColor = theme.colors.onSurfaceVariant;
+
+  const [budget, setBudget] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // 🔥 Sync value when modal opens
+  useEffect(() => {
+    if (visible) {
+      setBudget(currentBudget ? String(currentBudget) : "");
+    }
+  }, [visible, currentBudget]);
+
+  // 🔥 Decimal input (same as AddExpense)
+  const handleBudgetChange = (text: string) => {
+    let cleaned = text.replace(/[^0-9.]/g, "");
+
+    const parts = cleaned.split(".");
+    if (parts.length > 2) {
+      cleaned = parts[0] + "." + parts.slice(1).join("");
+    }
+
+    if (parts[1]?.length > 2) {
+      cleaned = parts[0] + "." + parts[1].slice(0, 2);
+    }
+
+    setBudget(cleaned);
+  };
 
   const handleUpdate = async () => {
     if (!budget) return;
+
+    const parsed = parseFloat(budget);
+    if (isNaN(parsed)) return;
 
     setLoading(true);
 
     const { error } = await supabase
       .from("cycles")
-      .update({ budget: Number(budget) })
+      .update({ budget: Number(parsed.toFixed(2)) })
       .eq("id", cycleId);
 
     setLoading(false);
@@ -48,80 +78,77 @@ export default function UpdateBudgetModal({
       <View
         style={{
           flex: 1,
-          backgroundColor: "rgba(0,0,0,0.5)",
           justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "rgba(0,0,0,0.4)",
           padding: 20,
         }}
       >
         <View
           style={{
+            width: "100%",
             backgroundColor: theme.colors.surface,
             borderRadius: 20,
             padding: 20,
           }}
         >
+          {/* TITLE */}
           <Text
             style={{
-              fontSize: 18,
               fontWeight: "bold",
-              marginBottom: 10,
-              color: theme.colors.onSurface,
+              fontSize: 18,
+              marginBottom: 12,
+              textAlign: "center",
+              color: textColor,
             }}
           >
             Update Budget
           </Text>
 
+          {/* INPUT */}
           <TextInput
-            value={budget}
-            onChangeText={setBudget}
-            keyboardType="numeric"
             placeholder="Enter new budget"
+            placeholderTextColor={placeholderColor}
+            value={budget}
+            onChangeText={handleBudgetChange}
+            keyboardType="decimal-pad"
             style={{
-              borderWidth: 1,
-              borderColor: theme.colors.outline,
-              borderRadius: 12,
+              marginTop: 10,
+              backgroundColor: theme.colors.background,
               padding: 12,
-              marginBottom: 16,
-              color: theme.colors.onSurface,
+              borderRadius: 10,
+              color: textColor,
             }}
           />
 
-          <View
+          {/* UPDATE BUTTON */}
+          <TouchableOpacity
+            onPress={handleUpdate}
+            disabled={loading}
             style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              gap: 10,
+              marginTop: 16,
+              backgroundColor: theme.colors.primary,
+              padding: 14,
+              borderRadius: 12,
+              alignItems: "center",
             }}
           >
-            <TouchableOpacity
-              onPress={onClose}
-              style={{
-                flex: 1,
-                padding: 12,
-                borderRadius: 12,
-                backgroundColor: theme.colors.surfaceVariant,
-                alignItems: "center",
-              }}
-            >
-              <Text style={{ color: theme.colors.onSurface }}>Cancel</Text>
-            </TouchableOpacity>
+            <Text style={{ color: "#fff", fontWeight: "bold" }}>
+              {loading ? "Updating..." : "Update"}
+            </Text>
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={handleUpdate}
-              disabled={loading}
+          {/* CANCEL */}
+          <TouchableOpacity onPress={onClose} style={{ marginTop: 10 }}>
+            <Text
               style={{
-                flex: 1,
-                padding: 12,
-                borderRadius: 12,
-                backgroundColor: theme.colors.primary,
-                alignItems: "center",
+                textAlign: "center",
+                color: theme.colors.onSurfaceVariant,
               }}
             >
-              <Text style={{ color: "white", fontWeight: "bold" }}>
-                {loading ? "Updating..." : "Update"}
-              </Text>
-            </TouchableOpacity>
-          </View>
+              Cancel
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
     </Modal>

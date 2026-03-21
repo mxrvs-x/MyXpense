@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { TouchableOpacity, View } from "react-native";
 
-import Entypo from "@expo/vector-icons/Entypo";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
@@ -9,7 +8,6 @@ import { Tabs } from "expo-router";
 import { useTheme } from "react-native-paper";
 
 import { useRefresh } from "@/context/RefreshContext";
-import AddExpenseModal from "../../../components/AddExpenseModal";
 import { ensureCurrentCycle } from "../../../lib/cycle";
 
 export default function TabsLayout() {
@@ -61,11 +59,6 @@ export default function TabsLayout() {
               color={theme.colors.onBackground}
             />
           ),
-
-          headerRight: () => (
-            <Entypo name="bell" size={22} color={theme.colors.onBackground} />
-          ),
-
           // TAB BAR
           tabBarStyle: {
             position: "absolute",
@@ -194,17 +187,6 @@ export default function TabsLayout() {
       >
         <MaterialIcons name="add" size={30} color="white" />
       </TouchableOpacity>
-
-      {/* 🧾 ADD EXPENSE MODAL */}
-      <AddExpenseModal
-        visible={showModal}
-        onClose={() => setShowModal(false)}
-        cycleId={cycleId}
-        onSaved={() => {
-          setShowModal(false);
-          triggerRefresh(); // ✅ GLOBAL
-        }}
-      />
     </View>
   );
 }

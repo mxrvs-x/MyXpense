@@ -8,10 +8,17 @@ Deno.serve(async (req) => {
       });
     }
 
-    const apiKey = Deno.env.get("AIzaSyC--A03NkYdBMIMTUYgHqiIOkdlUsgbYeE");
+    const apiKey = Deno.env.get("GEMINI_API_KEY");
+
+    if (!apiKey) {
+      return new Response(JSON.stringify({ error: "Missing API key" }), {
+        status: 500,
+      });
+    }
 
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      // ✅ USE MODEL FROM YOUR LIST
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: {
@@ -29,8 +36,12 @@ Deno.serve(async (req) => {
 
     const data = await res.json();
 
-    // 🔥 Extract text properly
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || null;
+    console.log("Gemini raw:", JSON.stringify(data));
+
+    const text =
+      data?.candidates?.[0]?.content?.parts
+        ?.map((p: any) => p.text)
+        ?.join("") || null;
 
     if (!text) {
       return new Response(
@@ -43,8 +54,6 @@ Deno.serve(async (req) => {
       headers: { "Content-Type": "application/json" },
     });
   } catch (err) {
-    console.error("Function error:", err);
-
     return new Response(
       JSON.stringify({ error: err.message || "Unknown error" }),
       { status: 500 },

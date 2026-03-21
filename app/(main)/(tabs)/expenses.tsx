@@ -1,6 +1,12 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import {
+  RefreshControl,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useTheme } from "@/types/theme";
@@ -18,6 +24,7 @@ export default function Expenses() {
   const [cycleDates, setCycleDates] = useState<string[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [cycle, setCycle] = useState<any>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const scrollRef = useRef<ScrollView>(null);
 
@@ -94,6 +101,16 @@ export default function Expenses() {
     [],
   );
 
+  const onRefresh = async () => {
+    if (!cycle?.id || !selectedDate) return;
+
+    setRefreshing(true);
+
+    await fetchExpensesByDate(selectedDate, cycle.id); // ✅ correct
+
+    setRefreshing(false);
+  };
+
   // 🚀 Init
   const init = useCallback(async () => {
     const currentCycle = await ensureCurrentCycle();
@@ -155,120 +172,129 @@ export default function Expenses() {
         paddingTop: 0,
       }}
     >
-      {/* 🔒 FIXED HEADER */}
-      <View style={{ paddingHorizontal: 16 }}>
-        {cycle && (
-          <LinearGradient
-            colors={theme.custom.gradient}
-            style={{ borderRadius: 24, padding: 20 }}
-          >
-            <Text
-              style={{
-                color: "white",
-                fontSize: 28,
-                fontWeight: "bold",
-                marginTop: 4,
-              }}
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        {/* 🔒 FIXED HEADER */}
+        <View style={{ paddingHorizontal: 16 }}>
+          {cycle && (
+            <LinearGradient
+              colors={theme.custom.gradient}
+              style={{ borderRadius: 24, padding: 20 }}
             >
-              ₱{total.toFixed(2)}
-            </Text>
-
-            <Text
-              style={{
-                color: "rgba(255,255,255,0.85)",
-                marginTop: 4,
-                fontSize: 14,
-              }}
-            >
-              {formatPrettyDate(selectedDate)}
-            </Text>
-
-            <Text
-              style={{
-                color: "rgba(255,255,255,0.7)",
-                fontSize: 12,
-                marginTop: 8,
-              }}
-            >
-              Current Cycle
-            </Text>
-
-            <Text
-              style={{
-                color: "rgba(255,255,255,0.6)",
-                fontSize: 12,
-              }}
-            >
-              {formatShort(cycle.start_date)} – {formatShort(cycle.end_date)}
-            </Text>
-          </LinearGradient>
-        )}
-
-        {/* 📅 Calendar */}
-        <ScrollView
-          ref={scrollRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ marginTop: 16 }}
-        >
-          {cycleDates.map((date) => {
-            const isSelected = date === selectedDate;
-
-            return (
-              <TouchableOpacity
-                key={date}
-                onPress={() => handleSelectDate(date)}
+              <Text
                 style={{
-                  alignItems: "center",
-                  paddingVertical: 8,
-                  paddingHorizontal: 12,
-                  marginRight: 8,
-                  borderRadius: 12,
-                  backgroundColor: isSelected
-                    ? theme.colors.primary
-                    : theme.colors.surface,
+                  color: "white",
+                  fontSize: 28,
+                  fontWeight: "bold",
+                  marginTop: 4,
                 }}
               >
-                <Text
+                ₱{total.toFixed(2)}
+              </Text>
+
+              <Text
+                style={{
+                  color: "rgba(255,255,255,0.85)",
+                  marginTop: 4,
+                  fontSize: 14,
+                }}
+              >
+                {formatPrettyDate(selectedDate)}
+              </Text>
+
+              <Text
+                style={{
+                  color: "rgba(255,255,255,0.7)",
+                  fontSize: 12,
+                  marginTop: 8,
+                }}
+              >
+                Current Cycle
+              </Text>
+
+              <Text
+                style={{
+                  color: "rgba(255,255,255,0.6)",
+                  fontSize: 12,
+                }}
+              >
+                {formatShort(cycle.start_date)} – {formatShort(cycle.end_date)}
+              </Text>
+            </LinearGradient>
+          )}
+
+          {/* 📅 Calendar */}
+          <ScrollView
+            ref={scrollRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ marginTop: 16 }}
+          >
+            {cycleDates.map((date) => {
+              const isSelected = date === selectedDate;
+
+              return (
+                <TouchableOpacity
+                  key={date}
+                  onPress={() => handleSelectDate(date)}
                   style={{
-                    fontSize: 11,
-                    color: isSelected ? "#fff" : theme.colors.onSurfaceVariant,
+                    alignItems: "center",
+                    paddingVertical: 8,
+                    paddingHorizontal: 12,
+                    marginRight: 8,
+                    borderRadius: 12,
+                    backgroundColor: isSelected
+                      ? theme.colors.primary
+                      : theme.colors.surface,
                   }}
                 >
-                  {getDay(date)}
-                </Text>
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      color: isSelected
+                        ? "#fff"
+                        : theme.colors.onSurfaceVariant,
+                    }}
+                  >
+                    {getDay(date)}
+                  </Text>
 
-                <Text
-                  style={{
-                    fontWeight: "bold",
-                    color: isSelected ? "#fff" : theme.colors.onSurface,
-                  }}
-                >
-                  {new Date(date).getDate()}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
+                  <Text
+                    style={{
+                      fontWeight: "bold",
+                      color: isSelected ? "#fff" : theme.colors.onSurface,
+                    }}
+                  >
+                    {new Date(date).getDate()}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
 
-      {/* 📋 TRANSACTIONS */}
-      <View style={{ flex: 1 }}>
-        <TransactionList
-          data={expenses}
-          onPressItem={(item) => {
-            setSelectedTransaction(item);
-            setShowModal(true);
-          }}
+        {/* 📋 TRANSACTIONS */}
+        <View style={{ flex: 1 }}>
+          <TransactionList
+            data={expenses}
+            onPressItem={(item) => {
+              setSelectedTransaction(item);
+              setShowModal(true);
+            }}
+          />
+        </View>
+
+        {/* 🪟 MODAL */}
+        <TransactionDetailsModal
+          visible={showModal}
+          onClose={() => setShowModal(false)}
+          transaction={selectedTransaction}
         />
-      </View>
-
-      {/* 🪟 MODAL */}
-      <TransactionDetailsModal
-        visible={showModal}
-        onClose={() => setShowModal(false)}
-        transaction={selectedTransaction}
-      />
+      </ScrollView>
     </SafeAreaView>
   );
 }

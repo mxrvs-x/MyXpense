@@ -1,6 +1,8 @@
 import { RefreshProvider } from "@/context/RefreshContext";
+import * as Notifications from "expo-notifications";
 import { Stack } from "expo-router";
-import { useColorScheme } from "react-native";
+import { useEffect } from "react";
+import { LogBox, useColorScheme } from "react-native";
 import {
   MD3DarkTheme,
   MD3LightTheme,
@@ -8,49 +10,78 @@ import {
 } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import {
+  requestNotificationPermission,
+  scheduleDailyReminder,
+} from "../src/utils/notifications";
+
+// 🔕 OPTIONAL: silence Expo Go warning
+LogBox.ignoreLogs(["expo-notifications: Android Push notifications"]);
+
+// 🔔 Notification handler
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
+
+  useEffect(() => {
+    const setupNotifications = async () => {
+      // ✅ Fix: set channel properly (Android)
+      await Notifications.setNotificationChannelAsync("default", {
+        name: "default",
+        importance: Notifications.AndroidImportance.HIGH,
+      });
+
+      const granted = await requestNotificationPermission();
+
+      if (granted) {
+        await scheduleDailyReminder();
+      }
+    };
+
+    setupNotifications();
+  }, []);
 
   const theme = isDark
     ? {
         ...MD3DarkTheme,
         colors: {
           ...MD3DarkTheme.colors,
-
-          // 🟢 DARK EMERALD FINANCE THEME
-          primary: "#34d399", // emerald accent
-          background: "#021712", // deep emerald-black
-          surface: "#052e2b", // card/tab surface // dark green card base
-          secondary: "#22c55e", // success green
+          primary: "#34d399",
+          background: "#021712",
+          surface: "#052e2b",
+          secondary: "#22c55e",
           error: "#d46060",
-
           outline: "#064e3b",
           onSurface: "#d1fae5",
         },
-
         custom: {
-          gradient: ["#022c22", "#065f46"], // 💰 main card gradient
+          gradient: ["#022c22", "#065f46"],
         },
       }
     : {
         ...MD3LightTheme,
         colors: {
           ...MD3LightTheme.colors,
-
-          // 🌿 LIGHT EMERALD FINANCE THEME
-          primary: "#059669", // emerald-600
-          background: "#ecfdf5", // very light emerald tint
-          surface: "#ffffff", // clean cards
+          primary: "#059669",
+          background: "#ecfdf5",
+          surface: "#ffffff",
           secondary: "#22c55e",
           error: "#fc7070",
-
           outline: "#a7f3d0",
           onSurface: "#022c22",
         },
-
         custom: {
-          gradient: ["#65bd9a", "#23c793"], // 🌿 light emerald gradient
+          gradient: ["#65bd9a", "#23c793"],
         },
       };
 
