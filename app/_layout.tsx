@@ -3,6 +3,7 @@ import * as Notifications from "expo-notifications";
 import { Stack } from "expo-router";
 import { useEffect } from "react";
 import { LogBox, useColorScheme } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import {
   MD3DarkTheme,
   MD3LightTheme,
@@ -86,14 +87,16 @@ export default function RootLayout() {
       };
 
   return (
-    <PaperProvider theme={theme}>
-      <RefreshProvider>
-        <SafeAreaView
-          style={{ flex: 1, backgroundColor: theme.colors.background }}
-        >
-          <Stack screenOptions={{ headerShown: false }} />
-        </SafeAreaView>
-      </RefreshProvider>
-    </PaperProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <PaperProvider theme={theme}>
+        <RefreshProvider>
+          <SafeAreaView
+            style={{ flex: 1, backgroundColor: theme.colors.background }}
+          >
+            <Stack screenOptions={{ headerShown: false }} />
+          </SafeAreaView>
+        </RefreshProvider>
+      </PaperProvider>
+    </GestureHandlerRootView>
   );
 }

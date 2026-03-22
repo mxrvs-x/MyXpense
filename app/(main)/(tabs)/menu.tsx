@@ -65,7 +65,7 @@ export default function Menu() {
           {/* COMPARE (future ready) */}
           <TouchableOpacity
             style={{ marginTop: 16 }}
-            onPress={() => router.push("/compare")}
+            onPress={() => router.push("/analytics")}
           >
             <Text
               style={{
@@ -74,7 +74,7 @@ export default function Menu() {
                 fontWeight: "600",
               }}
             >
-              📊 Compare Cycles
+              📊 Cycle Analytics
             </Text>
 
             <Text style={{ color: "rgba(255,255,255,0.6)" }}>
