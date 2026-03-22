@@ -1,25 +1,32 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import {
-  Keyboard,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Keyboard,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { useTheme } from "react-native-paper";
 import { supabase } from "../lib/supabase";
 
-export default function AddExpenseModal({
+interface Props {
+  visible: boolean;
+  onClose: () => void;
+  transaction: any;
+  onSave: (updated: any) => void;
+}
+
+export default function UpdateTransactionModal({
   visible,
   onClose,
-  cycleId,
-  onAdded,
-}: any) {
+  transaction,
+  onSave,
+}: Props) {
   const theme = useTheme();
 
   const textColor = theme.colors.onSurface;
@@ -33,10 +40,10 @@ export default function AddExpenseModal({
   const [walletId, setWalletId] = useState<string | null>(null);
 
   const [wallets, setWallets] = useState<any[]>([]);
-  const [showWallet, setShowWallet] = useState(false);
-  const [showCategory, setShowCategory] = useState(false);
 
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showCategory, setShowCategory] = useState(false);
+  const [showWallet, setShowWallet] = useState(false);
+
   const [isSaving, setIsSaving] = useState(false);
 
   const catItems = [
@@ -50,6 +57,23 @@ export default function AddExpenseModal({
     "Miscellaneous",
   ];
 
+  const closeAllDropdowns = () => {
+    setShowCategory(false);
+    setShowWallet(false);
+  };
+
+  // ✅ LOAD TRANSACTION
+  useEffect(() => {
+    if (transaction) {
+      setName(transaction.name || "");
+      setAmount(String(transaction.amount || ""));
+      setNotes(transaction.notes || "");
+      setCategory(transaction.category || null);
+      setWalletId(transaction.wallet_id || null);
+    }
+  }, [transaction]);
+
+  // ✅ FETCH WALLETS
   useEffect(() => {
     if (visible) fetchWallets();
   }, [visible]);
@@ -69,137 +93,68 @@ export default function AddExpenseModal({
     setWallets(data || []);
   };
 
-  const closeAllDropdowns = () => {
-    setShowCategory(false);
-    setShowWallet(false);
-  };
+  if (!transaction) return null;
 
+  // ✅ DECIMAL INPUT
   const handleAmountChange = (text: string) => {
     let cleaned = text.replace(/[^0-9.]/g, "");
+
     const parts = cleaned.split(".");
-    if (parts.length > 2) cleaned = parts[0] + "." + parts.slice(1).join("");
-    if (parts[1]?.length > 2) cleaned = parts[0] + "." + parts[1].slice(0, 2);
+    if (parts.length > 2) {
+      cleaned = parts[0] + "." + parts.slice(1).join("");
+    }
+
+    if (parts[1]?.length > 2) {
+      cleaned = parts[0] + "." + parts[1].slice(0, 2);
+    }
+
     setAmount(cleaned);
   };
 
-  const updateCycleBudget = async (cycleId: string, userId: string) => {
-    const { data: wallets } = await supabase
-      .from("wallets")
-      .select("balance")
-      .eq("user_id", userId);
-
-    const total = (wallets || []).reduce(
-      (sum, w) => sum + Number(w.balance || 0),
-      0,
-    );
-
-    await supabase
-      .from("cycles")
-      .update({ budget: Number(total.toFixed(2)) })
-      .eq("id", cycleId);
-  };
-
+  // ✅ SAVE
   const handleSave = async () => {
     if (isSaving) return; // 🚫 prevent double click
 
     setIsSaving(true);
 
     try {
-      if (!name || !amount || !category || !walletId) {
-        setErrorMessage("Please fill all required fields");
-        return;
-      }
+      if (!name || !amount || !category || !walletId) return;
 
       const parsedAmount = parseFloat(amount);
-      if (isNaN(parsedAmount)) {
-        setErrorMessage("Invalid amount");
-        return;
-      }
+      if (isNaN(parsedAmount)) return;
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) return;
-
-      // ✅ 1. Get wallet TOTAL balance
-      const { data: walletData, error: walletFetchError } = await supabase
-        .from("wallets")
-        .select("balance")
-        .eq("id", walletId)
-        .single();
-
-      if (walletFetchError) {
-        console.log(walletFetchError.message);
-        setErrorMessage("Failed to fetch wallet");
-        return;
-      }
-
-      const totalBalance = Number(walletData.balance || 0);
-
-      // ✅ 2. Get current spent for this wallet
-      const { data: expensesData, error: expenseError } = await supabase
+      const { error } = await supabase
         .from("expenses")
-        .select("amount")
-        .eq("wallet_id", walletId);
-
-      if (expenseError) {
-        console.log(expenseError.message);
-        setErrorMessage("Failed to validate balance");
-        return;
-      }
-
-      const spent = (expensesData || []).reduce(
-        (sum, item) => sum + Number(item.amount),
-        0,
-      );
-
-      const remaining = totalBalance - spent;
-
-      // ✅ 3. Validate remaining
-      if (remaining - parsedAmount < 0) {
-        setErrorMessage("Not enough balance in this wallet");
-        return;
-      }
-
-      setErrorMessage(null);
-
-      // ✅ 4. Insert expense ONLY (no wallet update)
-      const { error } = await supabase.from("expenses").insert({
-        name,
-        amount: Number(parsedAmount.toFixed(2)),
-        category,
-        notes: notes || null,
-        cycle_id: cycleId,
-        wallet_id: walletId,
-        date_spent: new Date().toISOString(),
-        user_id: user.id,
-      });
+        .update({
+          name,
+          amount: Number(parsedAmount.toFixed(2)),
+          category,
+          notes: notes || null,
+          wallet_id: walletId,
+        })
+        .eq("id", transaction.id);
 
       if (error) {
         console.log(error.message);
-        setErrorMessage("Failed to save expense");
         return;
       }
 
-      // ✅ 5. Update cycle budget (still valid)
-      await updateCycleBudget(cycleId, user.id);
-
-      // RESET
-      setName("");
-      setAmount("");
-      setNotes("");
-      setCategory(null);
-      setWalletId(null);
-      setErrorMessage(null);
+      onSave({
+        ...transaction,
+        name,
+        amount: parsedAmount,
+        category,
+        notes,
+        wallet_id: walletId,
+      });
 
       onClose();
-      onAdded?.();
     } finally {
       setIsSaving(false);
     }
   };
 
+  // ✅ DROPDOWN (same as Add)
   const renderDropdown = (
     label: string,
     value: string | null,
@@ -258,7 +213,6 @@ export default function AddExpenseModal({
                 key={item.id || item}
                 onPress={() => {
                   onSelect(item.id || item);
-                  setErrorMessage(null);
                   closeAllDropdowns();
                 }}
                 style={{ padding: 12 }}
@@ -313,7 +267,7 @@ export default function AddExpenseModal({
                   color: theme.colors.onSurface,
                 }}
               >
-                Add Expense
+                Update Expense
               </Text>
 
               <TextInput
@@ -351,22 +305,6 @@ export default function AddExpenseModal({
                 setCategory,
               )}
 
-              {/* 🔴 ERROR */}
-              {errorMessage && (
-                <View
-                  style={{
-                    marginTop: 10,
-                    backgroundColor: "#fee2e2",
-                    padding: 10,
-                    borderRadius: 10,
-                  }}
-                >
-                  <Text style={{ color: "#dc2626", fontWeight: "500" }}>
-                    {errorMessage}
-                  </Text>
-                </View>
-              )}
-
               {renderDropdown(
                 "Select Wallet",
                 walletId,
@@ -382,16 +320,14 @@ export default function AddExpenseModal({
                 disabled={isSaving}
                 style={{
                   marginTop: 16,
-                  backgroundColor: isSaving
-                    ? "#9ca3af" // gray when disabled
-                    : theme.colors.primary,
+                  backgroundColor: theme.colors.primary,
                   padding: 14,
                   borderRadius: 12,
                   alignItems: "center",
                 }}
               >
                 <Text style={{ color: "#fff", fontWeight: "bold" }}>
-                  {isSaving ? "Saving..." : "Save"}
+                  {isSaving ? "Updating..." : "Update"}
                 </Text>
               </TouchableOpacity>
 

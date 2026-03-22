@@ -34,7 +34,7 @@ export default function TransactionDetailsModal({
     });
   };
 
-  // ✅ OPTIONS (Label Mapping)
+  // ✅ CATEGORY LABELS
   const catItems = [
     { label: "Food", value: "Food" },
     { label: "Groceries", value: "Groceries" },
@@ -46,25 +46,12 @@ export default function TransactionDetailsModal({
     { label: "Miscellaneous", value: "Miscellaneous" },
   ];
 
-  const typeItems = [
-    { label: "Cash", value: "cash" },
-    { label: "Cashless", value: "cashless" },
-  ];
-
-  const methodItems = [
-    { label: "GCash", value: "gcash" },
-    { label: "Bank Transfer", value: "bank_transfer" },
-    { label: "Debit Card", value: "debit_card" },
-    { label: "Credit Card", value: "credit_card" },
-    { label: "Maribank", value: "maribank" },
-  ];
-
-  // ✅ HELPER: convert value → label
+  // ✅ HELPER
   const getLabel = (
     items: { label: string; value: string }[],
     value: string | null,
   ) => {
-    if (!value) return "N/A";
+    if (!value) return "—";
     const found = items.find((item) => item.value === value);
     return found ? found.label : value;
   };
@@ -127,29 +114,25 @@ export default function TransactionDetailsModal({
             {getLabel(catItems, transaction.category)}
           </Text>
 
-          {/* Payment Type */}
-          <Text style={{ color: theme.colors.onSurfaceVariant }}>
-            Payment Type
-          </Text>
+          {/* ✅ WALLET (NEW) */}
+          <Text style={{ color: theme.colors.onSurfaceVariant }}>Wallet</Text>
           <Text style={{ marginBottom: 10, color: theme.colors.onSurface }}>
-            {getLabel(typeItems, transaction.payment_type)}
+            {transaction.wallet?.name || "—"}
           </Text>
 
-          {/* Payment Method */}
-          <Text style={{ color: theme.colors.onSurfaceVariant }}>
-            Payment Method
-          </Text>
-          <Text style={{ marginBottom: 10, color: theme.colors.onSurface }}>
-            {getLabel(methodItems, transaction.payment_method)}
+          {/* Notes */}
+          <Text style={{ color: theme.colors.onSurfaceVariant }}>Notes</Text>
+          <Text style={{ marginBottom: 20, color: theme.colors.onSurface }}>
+            {transaction.notes || "—"}
           </Text>
 
           {/* Date */}
           <Text style={{ color: theme.colors.onSurfaceVariant }}>Date</Text>
-          <Text style={{ marginBottom: 20, color: theme.colors.onSurface }}>
+          <Text style={{ marginBottom: 10, color: theme.colors.onSurface }}>
             {formatDate(transaction.date_spent)}
           </Text>
 
-          {/* Close Button */}
+          {/* Close */}
           <TouchableOpacity
             onPress={onClose}
             style={{

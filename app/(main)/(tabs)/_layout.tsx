@@ -10,6 +10,8 @@ import { useTheme } from "react-native-paper";
 import { useRefresh } from "@/context/RefreshContext";
 import { ensureCurrentCycle } from "../../../lib/cycle";
 
+import AddExpenseModal from "@/components/AddExpenseModal";
+
 export default function TabsLayout() {
   const theme = useTheme();
 
@@ -187,6 +189,18 @@ export default function TabsLayout() {
       >
         <MaterialIcons name="add" size={30} color="white" />
       </TouchableOpacity>
+
+      {showModal && cycleId && (
+        <AddExpenseModal
+          visible={showModal}
+          onClose={() => setShowModal(false)}
+          cycleId={cycleId}
+          onAdded={() => {
+            triggerRefresh();
+            setShowModal(false);
+          }}
+        />
+      )}
     </View>
   );
 }

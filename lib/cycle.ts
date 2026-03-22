@@ -19,7 +19,7 @@ export const ensureCurrentCycle = async () => {
   let start: Date;
   let end: Date;
 
-  // 📅 cycle logic
+  // 📅 cycle logic (7–21, 22–6)
   if (day >= 7 && day <= 21) {
     start = new Date(today.getFullYear(), today.getMonth(), 7);
     end = new Date(today.getFullYear(), today.getMonth(), 21);
@@ -50,10 +50,26 @@ export const ensureCurrentCycle = async () => {
   }
 
   if (existing) {
-    return existing;
+    return existing; // ✅ already exists → use it
   }
 
-  // ➕ Create new cycle
+  // 🔥 NEW: Compute wallet total (carry-over budget)
+  const { data: wallets, error: walletError } = await supabase
+    .from("wallets")
+    .select("balance")
+    .eq("user_id", user.id);
+
+  if (walletError) {
+    console.log("Wallet fetch error:", walletError.message);
+    return null;
+  }
+
+  const totalBudget = (wallets || []).reduce(
+    (sum, w) => sum + Number(w.balance || 0),
+    0,
+  );
+
+  // ➕ Create new cycle with computed budget
   const { data: newCycle, error } = await supabase
     .from("cycles")
     .insert([
@@ -61,7 +77,7 @@ export const ensureCurrentCycle = async () => {
         user_id: user.id,
         start_date: startDate,
         end_date: endDate,
-        budget: 0,
+        budget: Number(totalBudget.toFixed(2)), // ✅ FIXED
       },
     ])
     .select()

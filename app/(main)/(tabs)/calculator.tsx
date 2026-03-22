@@ -23,13 +23,13 @@ export default function ExpenseCalculator() {
 
   const [cycle, setCycle] = useState<any>(null);
   const [totalSpent, setTotalSpent] = useState(0);
+  const [wallets, setWallets] = useState<any[]>([]); // ✅ NEW
   const [expenses, setExpenses] = useState<string[]>([""]);
 
   const [calculated, setCalculated] = useState(false);
   const [totalInput, setTotalInput] = useState(0);
   const [calculatedRemaining, setCalculatedRemaining] = useState(0);
 
-  // ✅ AI states
   const [aiInsights, setAiInsights] = useState<string[]>([]);
   const [loadingAI, setLoadingAI] = useState(false);
   const [aiError, setAiError] = useState(false);
@@ -42,6 +42,12 @@ export default function ExpenseCalculator() {
       style: "currency",
       currency: "PHP",
     }).format(value || 0);
+  };
+
+  const fetchWallets = async () => {
+    const { data } = await supabase.from("wallets").select("balance");
+
+    setWallets(data || []);
   };
 
   const loadData = async () => {
@@ -61,6 +67,8 @@ export default function ExpenseCalculator() {
     );
 
     setTotalSpent(total);
+
+    await fetchWallets(); // ✅ IMPORTANT
   };
 
   useEffect(() => {
@@ -68,7 +76,7 @@ export default function ExpenseCalculator() {
   }, []);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval>;
 
     if (loadingAI) {
       interval = setInterval(() => {
@@ -79,7 +87,9 @@ export default function ExpenseCalculator() {
     return () => clearInterval(interval);
   }, [loadingAI]);
 
-  const INCOME = Number(cycle?.budget || 0);
+  // ✅ FIXED CALCULATION
+  const INCOME = wallets.reduce((sum, w) => sum + Number(w.balance || 0), 0);
+
   const REMAINING = INCOME - totalSpent;
 
   const updateExpense = (value: string, index: number) => {
@@ -97,58 +107,101 @@ export default function ExpenseCalculator() {
     setExpenses(updated.length ? updated : [""]);
   };
 
-  // 🔥 GEMINI AI FUNCTION
   const fetchAIInsights = async (plannedTotal: number, remaining: number) => {
     try {
       setLoadingAI(true);
       setAiError(false);
 
       const prompt = `
-You are a financial assistant inside a mobile app.
+You are a smart financial assistant inside a mobile expense tracking app.
 
-Provide EXACTLY 4 short insights about the user's planned expenses.
+Analyze the user's planned spending data and provide personalized insights.
 
-RULES:
-- Max 10 words per line
-- Bullet format
-- Practical and actionable
+IMPORTANT:
+- Use ONLY the numbers provided
+- DO NOT assume anything
+- DO NOT use past spending
+- Focus ONLY on planned expenses
+- Treat "remaining after plan" as final outcome
+
+GOAL:
+Generate EXACTLY 6 lines:
+- First 3 = insights about planned spending
+- Next 3 = simple tips based on the plan
+
+STRICT RULES:
+- Use VERY SIMPLE words
+- Easy to understand for anyone
+- Max 8 words per line
+- No full sentences
+- No complex terms
+- No explanations
 - No emojis
+- One line per item
 
 DATA:
-Budget: ₱${INCOME}
-Already spent: ₱${totalSpent}
 Planned spending: ₱${plannedTotal}
 Remaining after plan: ₱${remaining}
 
-FORMAT:
-• Insight
-• Insight
-• Tip
-• Tip
+OUTPUT FORMAT:
+Insight
+Insight
+Insight
+Tip
+Tip
+Tip
 `;
 
-      const res = await fetch(
-        "https://ckntamtouzpuevbmpgav.supabase.co/functions/v1/gemini-ai",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
+      let aiText = "";
+
+      try {
+        const geminiRes = await fetch(
+          "https://ckntamtouzpuevbmpgav.supabase.co/functions/v1/gemini-ai",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ prompt }),
           },
-          body: JSON.stringify({ prompt }),
-        },
-      );
+        );
 
-      const data = await res.json();
+        const geminiData = await geminiRes.json();
 
-      if (!data.response) throw new Error("No AI response");
+        if (geminiData?.response) {
+          aiText = geminiData.response;
+        } else {
+          throw new Error("Gemini failed");
+        }
+      } catch {
+        const groqRes = await fetch(
+          "https://ckntamtouzpuevbmpgav.supabase.co/functions/v1/groq-ai",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ prompt }),
+          },
+        );
 
-      const insights = data.response
+        const groqData = await groqRes.json();
+
+        if (!groqData?.response) {
+          throw new Error("Groq fallback failed");
+        }
+
+        aiText = groqData.response;
+      }
+
+      const cleaned = aiText
         .split("\n")
         .map((line: string) => line.replace(/^[-•\d.\s]+/, "").trim())
-        .filter((line: string) => line.length > 0)
-        .slice(0, 4);
+        .filter((line: string) => line.length > 0);
 
-      setAiInsights(insights);
+      const insights = cleaned.slice(0, 3);
+      const tips = cleaned.slice(3, 6);
+
+      while (insights.length < 3) insights.push("No insight generated");
+      while (tips.length < 3) tips.push("No tip generated");
+
+      setAiInsights([...insights, ...tips]);
     } catch (err) {
       console.log(err);
       setAiError(true);
@@ -169,7 +222,6 @@ FORMAT:
     setCalculatedRemaining(remaining);
     setCalculated(true);
 
-    // 🔥 trigger AI
     await fetchAIInsights(total, remaining);
   };
 
@@ -187,7 +239,6 @@ FORMAT:
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{ flex: 1 }}
       >
-        {/* 🔒 HEADER */}
         <View style={{ paddingHorizontal: 16 }}>
           <LinearGradient
             colors={theme.custom.gradient}
@@ -259,7 +310,7 @@ FORMAT:
                       value={value}
                       onChangeText={(text) => updateExpense(text, index)}
                       placeholder={`Amount ${index + 1}`}
-                      placeholderTextColor={theme.colors.outline}
+                      placeholderTextColor={theme.colors.onSurface}
                       style={{
                         flex: 1,
                         backgroundColor: theme.colors.background,
@@ -351,10 +402,7 @@ FORMAT:
                   </Text>
                 )}
 
-                {/* 🔥 AI INSIGHTS */}
                 <View style={{ marginTop: 20 }}>
-                  <Text style={{ marginBottom: 6 }}>AI Insights</Text>
-
                   {loadingAI ? (
                     <Text>AI Analyzing your planned expense {dots}</Text>
                   ) : aiError ? (
@@ -362,11 +410,25 @@ FORMAT:
                       Failed to load insights
                     </Text>
                   ) : (
-                    aiInsights.map((item, i) => (
-                      <Text key={i} style={{ marginBottom: 4 }}>
-                        • {item}
+                    <>
+                      <Text style={{ marginTop: 10, fontWeight: "600" }}>
+                        Insights
                       </Text>
-                    ))
+                      {aiInsights.slice(0, 3).map((item, i) => (
+                        <Text key={`insight-${i}`} style={{ marginBottom: 4 }}>
+                          • {item}
+                        </Text>
+                      ))}
+
+                      <Text style={{ marginTop: 10, fontWeight: "600" }}>
+                        Tips
+                      </Text>
+                      {aiInsights.slice(3, 6).map((item, i) => (
+                        <Text key={`tip-${i}`} style={{ marginBottom: 4 }}>
+                          • {item}
+                        </Text>
+                      ))}
+                    </>
                   )}
                 </View>
 

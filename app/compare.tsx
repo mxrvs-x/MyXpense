@@ -24,7 +24,7 @@ export default function CompareCycles() {
   const [dots, setDots] = useState("");
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval>;
 
     if (loadingAI) {
       interval = setInterval(() => {
@@ -85,55 +85,93 @@ export default function CompareCycles() {
       setAiError(false);
 
       const prompt = `
-You are a financial AI inside a mobile expense app.
+You are a smart financial assistant inside a mobile expense tracking app.
 
-Analyze the user's spending and return EXACTLY 6 items:
-- 3 insights about spending
-- 3 actionable tips for the CURRENT cycle
+Analyze the user's spending data and provide personalized insights.
 
-RULES:
-- Max 12 words per line
-- Use bullet format (•)
-- Be concise and professional
-- No emojis, no fluff
-- Focus on CURRENT cycle behavior
+IMPORTANT:
+- Use ONLY the numbers provided
+- DO NOT assume anything
+- Focus on COMPARING current vs previous spending
+- Base all insights on the difference between them
+
+GOAL:
+Generate EXACTLY 6 lines:
+- First 3 = insights comparing current vs previous spending
+- Next 3 = simple tips based on the comparison
+
+STRICT RULES:
+- Use VERY SIMPLE words
+- Easy to understand
+- Max 8 words per line
+- No full sentences
+- No complex terms
+- No explanations
+- No emojis
+- One line per item
 
 DATA:
-Current:
-Spent: ₱${currentTotal}
-Budget: ₱${currentCycle?.budget}
-Remaining: ₱${currentCycle?.budget - currentTotal}
+Current spent: ₱${currentTotal}
+Current remaining: ₱${currentCycle?.budget - currentTotal}
 
-Previous:
-Spent: ₱${previousTotal}
+Previous spent: ₱${previousTotal}
+Previous remaining: ₱${previousCycle?.budget - previousTotal}
 
-FORMAT:
-• Insight
-• Insight
-• Insight
-• Tip
-• Tip
-• Tip
+Difference: ₱${currentTotal - previousTotal}
+
+OUTPUT FORMAT:
+Insight
+Insight
+Insight
+Tip
+Tip
+Tip
 `;
 
-      const res = await fetch(
-        "https://ckntamtouzpuevbmpgav.supabase.co/functions/v1/gemini-ai",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
+      let aiText = "";
+
+      // ✅ 1. TRY GEMINI FIRST
+      try {
+        const geminiRes = await fetch(
+          "https://ckntamtouzpuevbmpgav.supabase.co/functions/v1/gemini-ai",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ prompt }),
           },
-          body: JSON.stringify({ prompt }),
-        },
-      );
+        );
 
-      const data = await res.json();
+        const geminiData = await geminiRes.json();
 
-      if (!data.response) {
-        throw new Error("No AI response");
+        if (geminiData?.response) {
+          aiText = geminiData.response;
+        } else {
+          throw new Error("Gemini failed");
+        }
+      } catch (geminiErr) {
+        console.log("Gemini failed, switching to Groq...");
+
+        // ✅ 2. FALLBACK TO GROQ
+        const groqRes = await fetch(
+          "https://ckntamtouzpuevbmpgav.supabase.co/functions/v1/groq-ai",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ prompt }),
+          },
+        );
+
+        const groqData = await groqRes.json();
+
+        if (!groqData?.response) {
+          throw new Error("Groq fallback failed");
+        }
+
+        aiText = groqData.response;
       }
 
-      const insights = data.response
+      // ✅ SAME PARSING (unchanged)
+      const insights = aiText
         .split("\n")
         .map((line: string) => line.replace(/^[-•\d.\s]+/, "").trim())
         .filter((line: string) => line.length > 0)
@@ -158,7 +196,6 @@ FORMAT:
     }
   }, [currentCycle, previousCycle]);
 
-  // ✅ ADDED SAFE FLAGS
   const hasCurrent = !!currentCycle;
   const hasPrevious = !!previousCycle;
 
@@ -197,7 +234,6 @@ FORMAT:
             marginTop: 20,
           }}
         >
-          {/* CURRENT */}
           <Text style={{ color: "rgba(255,255,255,0.7)" }}>Current Cycle</Text>
 
           <Text style={{ color: "white", fontWeight: "bold" }}>
@@ -212,7 +248,6 @@ FORMAT:
               : "Create a cycle to start tracking"}
           </Text>
 
-          {/* PREVIOUS */}
           <View style={{ marginTop: 16 }}>
             <Text style={{ color: "rgba(255,255,255,0.7)" }}>
               Previous Cycle
@@ -231,7 +266,6 @@ FORMAT:
             </Text>
           </View>
 
-          {/* DIFFERENCE */}
           <View style={{ marginTop: 16 }}>
             <Text style={{ color: "rgba(255,255,255,0.7)" }}>Difference</Text>
 
@@ -252,7 +286,6 @@ FORMAT:
             </Text>
           </View>
 
-          {/* AI */}
           <View style={{ marginTop: 16 }}>
             <Text
               style={{
