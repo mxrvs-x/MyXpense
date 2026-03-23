@@ -69,7 +69,7 @@ export default function Expenses() {
     });
   }
 
-  // ✅ Memoized generator
+  // ✅ Generate cycle dates
   const generateCycleDates = useCallback((start: string, end: string) => {
     const dates: string[] = [];
     const current = new Date(start);
@@ -83,38 +83,45 @@ export default function Expenses() {
     return dates;
   }, []);
 
-  // 📡 Fetch
+  // 🔥 ✅ FIXED FETCH (NO MORE TIMEZONE BUG)
   const fetchExpensesByDate = useCallback(
     async (date: string, cycle_id: string) => {
-      const start = new Date(date);
-      start.setHours(0, 0, 0, 0);
+      try {
+        // ✅ start of selected day (local)
+        const start = `${date}T00:00:00`;
 
-      const end = new Date(date);
-      end.setHours(23, 59, 59, 999);
+        // ✅ next day (exclusive end)
+        const nextDay = new Date(date);
+        nextDay.setDate(nextDay.getDate() + 1);
+        const nextDateStr = formatDateISO(nextDay);
 
-      const { data, error } = await supabase
-        .from("expenses")
-        .select(
-          `
-        *,
-        wallet:wallet_id (
-          id,
-          name
-        )
-      `,
-        )
-        .eq("cycle_id", cycle_id)
-        .gte("date_spent", start.toISOString())
-        .lte("date_spent", end.toISOString())
-        .order("date_spent", { ascending: false });
+        const { data, error } = await supabase
+          .from("expenses")
+          .select(
+            `
+            *,
+            wallet:wallet_id (
+              id,
+              name
+            )
+          `,
+          )
+          .eq("cycle_id", cycle_id)
+          .gte("date_spent", start)
+          .lt("date_spent", `${nextDateStr}T00:00:00`) // 🔥 KEY FIX
+          .order("date_spent", { ascending: false });
 
-      if (error) {
-        console.log(error);
+        if (error) {
+          console.log(error);
+          setExpenses([]);
+          return;
+        }
+
+        setExpenses(data || []);
+      } catch (err) {
+        console.log("Fetch error:", err);
         setExpenses([]);
-        return;
       }
-
-      setExpenses(data || []);
     },
     [],
   );
@@ -123,9 +130,7 @@ export default function Expenses() {
     if (!cycle?.id || !selectedDate) return;
 
     setRefreshing(true);
-
-    await fetchExpensesByDate(selectedDate, cycle.id); // ✅ correct
-
+    await fetchExpensesByDate(selectedDate, cycle.id);
     setRefreshing(false);
   };
 
@@ -143,12 +148,10 @@ export default function Expenses() {
     setCycleDates(dates);
 
     const todayStr = formatDateISO(new Date());
-
     const defaultDate = dates.includes(todayStr) ? todayStr : dates[0];
 
     setSelectedDate(defaultDate);
-
-    fetchExpensesByDate(defaultDate, currentCycle.id);
+    await fetchExpensesByDate(defaultDate, currentCycle.id);
 
     // 🔥 Auto scroll to today
     setTimeout(() => {
@@ -166,7 +169,7 @@ export default function Expenses() {
     init();
   }, [init]);
 
-  // 🔁 Refresh trigger (GLOBAL)
+  // 🔁 Global refresh trigger
   useEffect(() => {
     if (cycle?.id && selectedDate) {
       fetchExpensesByDate(selectedDate, cycle.id);
@@ -174,7 +177,7 @@ export default function Expenses() {
   }, [refreshKey, cycle?.id, selectedDate, fetchExpensesByDate]);
 
   function handleSelectDate(date: string) {
-    if (isFutureDate(new Date(date))) return; // ❌ block future
+    if (isFutureDate(new Date(date))) return;
 
     setSelectedDate(date);
 
@@ -187,62 +190,35 @@ export default function Expenses() {
 
   return (
     <SafeAreaView
-      style={{
-        flex: 1,
-        backgroundColor: theme.colors.background,
-      }}
-      edges={["left", "right", "bottom"]} // ✅ EXCLUDE TOP
+      style={{ flex: 1, backgroundColor: theme.colors.background }}
+      edges={["left", "right", "bottom"]}
     >
-      {/* 🔒 FIXED HEADER */}
+      {/* HEADER */}
       <View style={{ paddingHorizontal: 16 }}>
         {cycle && (
           <LinearGradient
             colors={theme.custom.gradient}
             style={{ borderRadius: 24, padding: 20 }}
           >
-            <Text
-              style={{
-                color: "white",
-                fontSize: 28,
-                fontWeight: "bold",
-                marginTop: 4,
-              }}
-            >
+            <Text style={{ color: "white", fontSize: 28, fontWeight: "bold" }}>
               ₱{total.toFixed(2)}
             </Text>
 
-            <Text
-              style={{
-                color: "rgba(255,255,255,0.85)",
-                marginTop: 4,
-                fontSize: 14,
-              }}
-            >
+            <Text style={{ color: "rgba(255,255,255,0.85)", marginTop: 4 }}>
               {formatPrettyDate(selectedDate)}
             </Text>
 
-            <Text
-              style={{
-                color: "rgba(255,255,255,0.7)",
-                fontSize: 12,
-                marginTop: 8,
-              }}
-            >
+            <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 12 }}>
               Current Cycle
             </Text>
 
-            <Text
-              style={{
-                color: "rgba(255,255,255,0.6)",
-                fontSize: 12,
-              }}
-            >
+            <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 12 }}>
               {formatShort(cycle.start_date)} – {formatShort(cycle.end_date)}
             </Text>
           </LinearGradient>
         )}
 
-        {/* 📅 Calendar */}
+        {/* CALENDAR */}
         <ScrollView
           ref={scrollRef}
           horizontal
@@ -256,7 +232,7 @@ export default function Expenses() {
             return (
               <TouchableOpacity
                 key={date}
-                disabled={isFuture} // 🔥 disable click
+                disabled={isFuture}
                 onPress={() => handleSelectDate(date)}
                 style={{
                   alignItems: "center",
@@ -267,7 +243,7 @@ export default function Expenses() {
                   backgroundColor: isSelected
                     ? theme.colors.primary
                     : theme.colors.surface,
-                  opacity: isFuture ? 0.4 : 1, // 🔥 fade future dates
+                  opacity: isFuture ? 0.4 : 1,
                 }}
               >
                 <Text
@@ -292,6 +268,8 @@ export default function Expenses() {
           })}
         </ScrollView>
       </View>
+
+      {/* CONTENT */}
       <ScrollView
         contentContainerStyle={{ flexGrow: 1, paddingBottom: 24 }}
         refreshControl={
@@ -303,12 +281,12 @@ export default function Expenses() {
             marginTop: 20,
             fontWeight: "bold",
             marginHorizontal: 20,
-            color: theme.colors.onBackground, // ✅ FIX
+            color: theme.colors.onBackground,
           }}
         >
-          Today's transactions
+          Today's Transactions
         </Text>
-        {/* 📋 TRANSACTIONS */}
+
         <View style={{ flex: 1 }}>
           <TransactionList
             data={expenses}
@@ -319,7 +297,6 @@ export default function Expenses() {
           />
         </View>
 
-        {/* 🪟 MODAL */}
         <TransactionDetailsModal
           visible={showModal}
           onClose={() => setShowModal(false)}

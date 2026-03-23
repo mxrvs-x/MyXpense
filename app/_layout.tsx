@@ -1,8 +1,9 @@
 import { RefreshProvider } from "@/context/RefreshContext";
 import * as Notifications from "expo-notifications";
 import { Stack } from "expo-router";
+import * as Updates from "expo-updates";
 import { useEffect } from "react";
-import { LogBox, useColorScheme } from "react-native";
+import { Alert, LogBox, useColorScheme } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import {
   MD3DarkTheme,
@@ -36,7 +37,6 @@ export default function RootLayout() {
 
   useEffect(() => {
     const setupNotifications = async () => {
-      // ✅ Fix: set channel properly (Android)
       await Notifications.setNotificationChannelAsync("default", {
         name: "default",
         importance: Notifications.AndroidImportance.HIGH,
@@ -50,6 +50,38 @@ export default function RootLayout() {
     };
 
     setupNotifications();
+  }, []);
+
+  // 🔥 OTA UPDATE CHECK (SMART VERSION)
+  useEffect(() => {
+    const checkForUpdates = async () => {
+      try {
+        // ❌ skip in dev (important)
+        if (__DEV__) return;
+
+        const update = await Updates.checkForUpdateAsync();
+
+        if (update.isAvailable) {
+          Alert.alert(
+            "Update Available 🚀",
+            "A new version of MyXpense is ready.",
+            [
+              {
+                text: "Update",
+                onPress: async () => {
+                  await Updates.fetchUpdateAsync();
+                  await Updates.reloadAsync();
+                },
+              },
+            ],
+          );
+        }
+      } catch (e) {
+        console.log("Update check error:", e);
+      }
+    };
+
+    checkForUpdates();
   }, []);
 
   const theme = isDark
