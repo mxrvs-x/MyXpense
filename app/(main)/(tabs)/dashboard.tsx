@@ -472,7 +472,7 @@ export default function Dashboard() {
             />
 
             <Text style={{ marginTop: 20, fontWeight: "bold" }}>
-              Recent transactions
+              Recent Transactions
             </Text>
 
             <TransactionList
