@@ -1,16 +1,15 @@
 {
   "build": {
     "preview": {
+      "channel": "preview",
       "android": {
         "buildType": "apk"
       },
       "autoIncrement": true
     },
     "production": {
+      "channel": "production",
       "autoIncrement": true
     }
-  },
-  "cli": {
-    "appVersionSource": "remote"
   }
 }
