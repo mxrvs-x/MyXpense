@@ -7,6 +7,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "@/types/theme";
 import { supabase } from "../lib/supabase";
 
+import { router } from "expo-router";
+
 export default function Archives() {
   const theme = useTheme();
   const [cycles, setCycles] = useState<any[]>([]);
@@ -115,7 +117,10 @@ export default function Archives() {
             <TouchableOpacity
               style={{ marginBottom: 16 }}
               onPress={() => {
-                // future: navigate to cycle details
+                router.push({
+                  pathname: "/expenses",
+                  params: { cycle_id: item.id },
+                });
               }}
             >
               <LinearGradient

@@ -65,6 +65,8 @@ export default function Dashboard() {
 
   const [loading, setLoading] = useState(true);
 
+  const [dots, setDots] = useState("");
+
   const safeNumber = (val: any) => {
     const num = Number(val);
     return isNaN(num) || !isFinite(num) ? 0 : num;
@@ -219,6 +221,16 @@ export default function Dashboard() {
     setLoading(false);
   }, []);
 
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+
+    if (loading) {
+      interval = setInterval(() => {
+        setDots((prev) => (prev.length >= 3 ? "" : prev + "."));
+      }, 500);
+    }
+  });
+
   const onRefresh = async () => {
     setRefreshing(true);
     await loadData();
@@ -273,7 +285,7 @@ export default function Dashboard() {
         }}
       >
         <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={{ marginTop: 10 }}>Loading dashboard...</Text>
+        <Text style={{ marginTop: 10 }}>Loading dashboard{dots}</Text>
       </View>
     );
   }
@@ -503,7 +515,7 @@ export default function Dashboard() {
 
             <TransactionList
               data={recentExpenses}
-              enableSwipe={false}
+              isArchived={true} // 🔥 disables swipe
               onPressItem={(item) => {
                 setSelectedTransaction(item);
                 setShowTransactionModal(true);

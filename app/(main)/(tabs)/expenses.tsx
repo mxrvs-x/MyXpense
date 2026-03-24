@@ -1,6 +1,7 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   RefreshControl,
   ScrollView,
   Text,
@@ -14,6 +15,7 @@ import TransactionDetailsModal from "../../../components/TransactionDetailsModal
 import TransactionList from "../../../components/TransactionList";
 
 import { useRefresh } from "@/context/RefreshContext";
+import { useLocalSearchParams } from "expo-router";
 import { ensureCurrentCycle } from "../../../lib/cycle";
 import { supabase } from "../../../lib/supabase";
 
@@ -33,6 +35,11 @@ export default function Expenses() {
 
   const { refreshKey } = useRefresh();
 
+  const { cycle_id } = useLocalSearchParams<{ cycle_id?: string }>();
+  const isArchived = !!cycle_id;
+  const [loading, setLoading] = useState(true);
+  const [dots, setDots] = useState("");
+
   const isFutureDate = (date: Date) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -42,6 +49,16 @@ export default function Expenses() {
 
     return selected > today;
   };
+
+  useEffect(() => {
+    if (!loading) return;
+
+    const interval = setInterval(() => {
+      setDots((prev) => (prev.length >= 3 ? "" : prev + "."));
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [loading]);
 
   // 📅 Helpers
   function formatDateISO(date: Date) {
@@ -134,36 +151,50 @@ export default function Expenses() {
     setRefreshing(false);
   };
 
-  // 🚀 Init
   const init = useCallback(async () => {
-    const currentCycle = await ensureCurrentCycle();
-    if (!currentCycle) return;
+    try {
+      let selectedCycle = null;
 
-    setCycle(currentCycle);
+      if (cycle_id) {
+        const { data } = await supabase
+          .from("cycles")
+          .select("*")
+          .eq("id", cycle_id)
+          .single();
 
-    const dates = generateCycleDates(
-      currentCycle.start_date,
-      currentCycle.end_date,
-    );
-    setCycleDates(dates);
-
-    const todayStr = formatDateISO(new Date());
-    const defaultDate = dates.includes(todayStr) ? todayStr : dates[0];
-
-    setSelectedDate(defaultDate);
-    await fetchExpensesByDate(defaultDate, currentCycle.id);
-
-    // 🔥 Auto scroll to today
-    setTimeout(() => {
-      const index = dates.findIndex((d) => d === defaultDate);
-      if (index !== -1 && scrollRef.current) {
-        scrollRef.current.scrollTo({
-          x: index * 60,
-          animated: true,
-        });
+        selectedCycle = data;
+      } else {
+        selectedCycle = await ensureCurrentCycle();
       }
-    }, 100);
-  }, [generateCycleDates, fetchExpensesByDate]);
+
+      if (!selectedCycle) return;
+
+      setCycle(selectedCycle);
+
+      const dates = generateCycleDates(
+        selectedCycle.start_date,
+        selectedCycle.end_date,
+      );
+      setCycleDates(dates);
+
+      const todayStr = formatDateISO(new Date());
+
+      const defaultDate = cycle_id
+        ? dates[0]
+        : dates.includes(todayStr)
+          ? todayStr
+          : dates[0];
+
+      setSelectedDate(defaultDate);
+
+      await fetchExpensesByDate(defaultDate, selectedCycle.id);
+    } catch (err) {
+      console.log(err);
+    } finally {
+      // ✅ IMPORTANT
+      setLoading(false);
+    }
+  }, [cycle_id, generateCycleDates, fetchExpensesByDate]);
 
   useEffect(() => {
     init();
@@ -188,6 +219,22 @@ export default function Expenses() {
 
   const total = expenses.reduce((sum, item) => sum + Number(item.amount), 0);
 
+  if (loading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: theme.colors.background,
+        }}
+      >
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={{ marginTop: 10 }}>Loading expenses{dots}</Text>
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView
       style={{ flex: 1, backgroundColor: theme.colors.background }}
@@ -209,7 +256,7 @@ export default function Expenses() {
             </Text>
 
             <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 12 }}>
-              Current Cycle
+              {cycle_id ? "Archived Cycle" : "Current Cycle"}
             </Text>
 
             <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 12 }}>
@@ -290,6 +337,7 @@ export default function Expenses() {
         <View style={{ flex: 1 }}>
           <TransactionList
             data={expenses}
+            isArchived={isArchived} // 🔥 IMPORTANT
             onPressItem={(item) => {
               setSelectedTransaction(item);
               setShowModal(true);

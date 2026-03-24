@@ -10,11 +10,11 @@ import { supabase } from "../lib/supabase";
 export default function TransactionList({
   data,
   onPressItem,
-  enableSwipe = true,
+  isArchived = false, // 🔥 NEW
 }: {
   data: any[];
   onPressItem: (item: any) => void;
-  enableSwipe?: boolean;
+  isArchived?: boolean;
 }) {
   const theme = useTheme();
 
@@ -23,7 +23,6 @@ export default function TransactionList({
 
   const { triggerRefresh } = useRefresh();
 
-  // ✅ track current swipe only
   const currentSwipeable = useRef<any>(null);
 
   const formatCurrency = (value: number) => {
@@ -33,8 +32,10 @@ export default function TransactionList({
     }).format(value || 0);
   };
 
-  // ✅ DELETE
+  // ❌ BLOCK DELETE if archived
   const handleDelete = async (item: any) => {
+    if (isArchived) return;
+
     currentSwipeable.current?.close();
 
     const { error } = await supabase
@@ -50,14 +51,15 @@ export default function TransactionList({
     triggerRefresh();
   };
 
-  // ✅ UPDATE
+  // ❌ BLOCK UPDATE if archived
   const handleUpdate = (item: any) => {
+    if (isArchived) return;
+
     currentSwipeable.current?.close();
     setSelectedItem(item);
     setModalVisible(true);
   };
 
-  // 👉 RIGHT ACTION (Update)
   const renderRightActions = (item: any) => (
     <TouchableOpacity
       onPress={() => handleUpdate(item)}
@@ -74,7 +76,6 @@ export default function TransactionList({
     </TouchableOpacity>
   );
 
-  // 👉 LEFT ACTION (Delete)
   const renderLeftActions = (item: any) => (
     <TouchableOpacity
       onPress={() => handleDelete(item)}
@@ -110,7 +111,7 @@ export default function TransactionList({
       <FlatList
         data={data}
         keyExtractor={(item) => item.id.toString()}
-        scrollEnabled={false} // ✅ 🔥 FIX FOR VIRTUALIZATION ERROR
+        scrollEnabled={false}
         contentContainerStyle={{ padding: 12 }}
         renderItem={({ item }) => {
           let swipeRef: any = null;
@@ -126,10 +127,8 @@ export default function TransactionList({
                 flexDirection: "row",
                 justifyContent: "space-between",
                 alignItems: "center",
-                overflow: "hidden",
               }}
             >
-              {/* LEFT */}
               <View style={{ flex: 1 }}>
                 <Text
                   style={{
@@ -141,7 +140,6 @@ export default function TransactionList({
                   {item.name || "Expense"}
                 </Text>
 
-                {/* ✅ UPDATED LINE (Category + Wallet + Date) */}
                 <Text
                   style={{
                     fontSize: 12,
@@ -154,7 +152,6 @@ export default function TransactionList({
                 </Text>
               </View>
 
-              {/* RIGHT */}
               <Text
                 style={{
                   fontWeight: "bold",
@@ -169,7 +166,8 @@ export default function TransactionList({
 
           return (
             <View style={{ marginBottom: 10 }}>
-              {enableSwipe ? (
+              {/* 🔥 DISABLE SWIPE WHEN ARCHIVED */}
+              {!isArchived ? (
                 <Swipeable
                   ref={(ref) => {
                     swipeRef = ref;
@@ -196,17 +194,19 @@ export default function TransactionList({
         }}
       />
 
-      {/* UPDATE MODAL */}
-      <UpdateTransactionModal
-        visible={modalVisible}
-        onClose={() => setModalVisible(false)}
-        transaction={selectedItem}
-        onSave={() => {
-          currentSwipeable.current?.close();
-          triggerRefresh();
-          setModalVisible(false);
-        }}
-      />
+      {/* 🔥 DISABLE UPDATE MODAL IF ARCHIVED */}
+      {!isArchived && (
+        <UpdateTransactionModal
+          visible={modalVisible}
+          onClose={() => setModalVisible(false)}
+          transaction={selectedItem}
+          onSave={() => {
+            currentSwipeable.current?.close();
+            triggerRefresh();
+            setModalVisible(false);
+          }}
+        />
+      )}
     </>
   );
 }

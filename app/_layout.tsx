@@ -1,8 +1,9 @@
+import UpdateModal from "@/components/UpdateAppModal"; // 👈 add this
 import { RefreshProvider } from "@/context/RefreshContext";
 import { Stack } from "expo-router";
 import * as Updates from "expo-updates";
-import { useEffect } from "react";
-import { Alert, useColorScheme } from "react-native";
+import { useEffect, useState } from "react";
+import { useColorScheme } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import {
   MD3DarkTheme,
@@ -15,6 +16,11 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
 
+  // 🔥 STATE
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [loadingUpdate, setLoadingUpdate] = useState(false);
+
+  // 🔥 CHECK FOR OTA UPDATE
   useEffect(() => {
     async function checkUpdates() {
       try {
@@ -32,12 +38,7 @@ export default function RootLayout() {
         console.log("Runtime:", Updates.runtimeVersion);
 
         if (update.isAvailable) {
-          Alert.alert("Update Available 🚀");
-
-          await Updates.fetchUpdateAsync();
-          console.log("Update fetched");
-
-          await Updates.reloadAsync();
+          setShowUpdateModal(true); // 👈 trigger modal
         } else {
           console.log("No update found");
         }
@@ -49,6 +50,23 @@ export default function RootLayout() {
     checkUpdates();
   }, []);
 
+  // 🔥 HANDLE UPDATE
+  const handleUpdate = async () => {
+    try {
+      setLoadingUpdate(true);
+
+      console.log("Fetching update...");
+      await Updates.fetchUpdateAsync();
+
+      console.log("Reloading app...");
+      await Updates.reloadAsync();
+    } catch (e) {
+      console.log("Update failed:", e);
+      setLoadingUpdate(false);
+    }
+  };
+
+  // 🎨 THEME
   const theme = isDark
     ? {
         ...MD3DarkTheme,
@@ -91,6 +109,14 @@ export default function RootLayout() {
             style={{ flex: 1, backgroundColor: theme.colors.background }}
           >
             <Stack screenOptions={{ headerShown: false }} />
+
+            {/* 🔥 CUSTOM UPDATE MODAL */}
+            <UpdateModal
+              visible={showUpdateModal}
+              onClose={() => setShowUpdateModal(false)}
+              onUpdate={handleUpdate}
+              loading={loadingUpdate}
+            />
           </SafeAreaView>
         </RefreshProvider>
       </PaperProvider>
