@@ -16,7 +16,7 @@
     },
 
     "updates": {
-      "url": "https://u.expo.dev/974e3d00-eec1-4815-9248-d050319fe049",
+      "url": "https://u.expo.dev/ba70b937-b9ad-41ae-a271-a4f972260d06",
       "fallbackToCacheTimeout": 0
     },
 
@@ -64,7 +64,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "974e3d00-eec1-4815-9248-d050319fe049"
+        "projectId": "ba70b937-b9ad-41ae-a271-a4f972260d06"
       }
     },
 
