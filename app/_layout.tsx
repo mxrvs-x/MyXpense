@@ -1,9 +1,8 @@
 import { RefreshProvider } from "@/context/RefreshContext";
-import * as Notifications from "expo-notifications";
 import { Stack } from "expo-router";
 import * as Updates from "expo-updates";
 import { useEffect } from "react";
-import { Alert, LogBox, useColorScheme } from "react-native";
+import { Alert, useColorScheme } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import {
   MD3DarkTheme,
@@ -12,76 +11,42 @@ import {
 } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import {
-  requestNotificationPermission,
-  scheduleDailyReminder,
-} from "../src/utils/notifications";
-
-// 🔕 OPTIONAL: silence Expo Go warning
-LogBox.ignoreLogs(["expo-notifications: Android Push notifications"]);
-
-// 🔔 Notification handler
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
-
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
 
   useEffect(() => {
-    const setupNotifications = async () => {
-      await Notifications.setNotificationChannelAsync("default", {
-        name: "default",
-        importance: Notifications.AndroidImportance.HIGH,
-      });
-
-      const granted = await requestNotificationPermission();
-
-      if (granted) {
-        await scheduleDailyReminder();
-      }
-    };
-
-    setupNotifications();
-  }, []);
-
-  // 🔥 OTA UPDATE CHECK (SMART VERSION)
-  useEffect(() => {
-    const checkForUpdates = async () => {
+    async function checkUpdates() {
       try {
-        // ❌ skip in dev (important)
-        if (__DEV__) return;
+        if (__DEV__) {
+          console.log("DEV MODE - skipping OTA");
+          return;
+        }
+
+        console.log("Checking for update...");
 
         const update = await Updates.checkForUpdateAsync();
 
+        console.log("Update available:", update.isAvailable);
+        console.log("Channel:", Updates.channel);
+        console.log("Runtime:", Updates.runtimeVersion);
+
         if (update.isAvailable) {
-          Alert.alert(
-            "Update Available 🚀",
-            "A new version of MyXpense is ready.",
-            [
-              {
-                text: "Update",
-                onPress: async () => {
-                  await Updates.fetchUpdateAsync();
-                  await Updates.reloadAsync();
-                },
-              },
-            ],
-          );
+          Alert.alert("Update Available 🚀");
+
+          await Updates.fetchUpdateAsync();
+          console.log("Update fetched");
+
+          await Updates.reloadAsync();
+        } else {
+          console.log("No update found");
         }
       } catch (e) {
-        console.log("Update check error:", e);
+        console.log("Update error:", e);
       }
-    };
+    }
 
-    checkForUpdates();
+    checkUpdates();
   }, []);
 
   const theme = isDark

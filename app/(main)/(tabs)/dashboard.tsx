@@ -15,6 +15,7 @@ import { BarChart, PieChart } from "react-native-gifted-charts";
 
 import { useRefresh } from "@/context/RefreshContext";
 import { useTheme } from "@/types/theme";
+import { ActivityIndicator } from "react-native";
 import TransactionDetailsModal from "../../../components/TransactionDetailsModal";
 import TransactionList from "../../../components/TransactionList";
 import { ensureCurrentCycle } from "../../../lib/cycle";
@@ -61,6 +62,8 @@ export default function Dashboard() {
 
   const [selectedWallet, setSelectedWallet] = useState<any>(null);
   const [showWalletModal, setShowWalletModal] = useState(false);
+
+  const [loading, setLoading] = useState(true);
 
   const safeNumber = (val: any) => {
     const num = Number(val);
@@ -199,14 +202,21 @@ export default function Dashboard() {
   };
 
   const loadData = useCallback(async () => {
+    setLoading(true);
+
     const currentCycle = await ensureCurrentCycle();
-    if (!currentCycle) return;
+    if (!currentCycle) {
+      setLoading(false);
+      return;
+    }
 
     setCycle(currentCycle);
 
     await fetchWallets();
     await fetchExpenses(currentCycle.id);
     await fetchCategoryData(currentCycle.id);
+
+    setLoading(false);
   }, []);
 
   const onRefresh = async () => {
@@ -251,6 +261,22 @@ export default function Dashboard() {
 
   const INCOME = wallets.reduce((sum, w) => sum + safeNumber(w.balance), 0);
   const REMAINING = INCOME - total;
+
+  if (loading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: theme.colors.background,
+        }}
+      >
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={{ marginTop: 10 }}>Loading dashboard...</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView
