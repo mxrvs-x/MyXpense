@@ -428,12 +428,16 @@ export default function Dashboard() {
 
                 const spent = walletSpending[item.id] || 0;
                 const balance = safeNumber(item.balance);
-                const remaining = balance - spent;
+                const remaining = Number((balance - spent).toFixed(2));
 
                 return (
                   <TouchableOpacity
                     onPress={() => {
-                      setSelectedWallet(item);
+                      setSelectedWallet({
+                        ...item,
+                        currentBalance: remaining,
+                        spent,
+                      });
                       setShowWalletModal(true);
                     }}
                   >

@@ -30,7 +30,11 @@ export default function UpdateWalletModal({
 
   useEffect(() => {
     if (visible && wallet) {
-      setBalance(wallet.balance ? String(wallet.balance) : "");
+      setBalance(
+        wallet.currentBalance !== undefined && wallet.currentBalance !== null
+          ? String(wallet.currentBalance)
+          : "",
+      );
     }
   }, [visible, wallet]);
 
@@ -136,6 +140,7 @@ export default function UpdateWalletModal({
       setIsSaving(false);
     }
   };
+
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View
