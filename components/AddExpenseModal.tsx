@@ -136,6 +136,10 @@ export default function AddExpenseModal({
       }
 
       const totalBalance = Number(walletData.balance || 0);
+      const now = new Date();
+      const localISO = new Date(
+        now.getTime() - now.getTimezoneOffset() * 60000,
+      ).toISOString();
 
       // ✅ 2. Get current spent for this wallet
       const { data: expensesData, error: expenseError } = await supabase
@@ -172,7 +176,7 @@ export default function AddExpenseModal({
         notes: notes || null,
         cycle_id: cycleId,
         wallet_id: walletId,
-        date_spent: new Date().toISOString(),
+        date_spent: localISO,
         user_id: user.id,
       });
 
