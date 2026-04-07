@@ -1,26 +1,26 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    RefreshControl,
+    ScrollView,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useTheme } from "@/types/theme";
-import TransactionDetailsModal from "../../../components/TransactionDetailsModal";
-import TransactionList from "../../../components/TransactionList";
+import TransactionDetailsModal from "../components/TransactionDetailsModal";
+import TransactionList from "../components/TransactionList";
 
-import { useRefresh } from "@/context/RefreshContext";
-import { useFocusEffect } from "expo-router";
-import { ensureCurrentCycle } from "../../../lib/cycle";
-import { supabase } from "../../../lib/supabase";
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
+import { supabase } from "../lib/supabase";
 
-export default function Expenses() {
+export default function ArchivedExpenses() {
   const theme = useTheme();
+
+  const { cycle_id } = useLocalSearchParams<{ cycle_id: string }>();
 
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [cycleDates, setCycleDates] = useState<string[]>([]);
@@ -32,8 +32,6 @@ export default function Expenses() {
 
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
   const [showModal, setShowModal] = useState(false);
-
-  const { refreshKey } = useRefresh();
 
   const [loading, setLoading] = useState(true);
   const [dots, setDots] = useState("");
@@ -48,7 +46,7 @@ export default function Expenses() {
     return selected > today;
   };
 
-  // loading animation dots (UNCHANGED)
+  // loading animation dots (same behavior)
   useFocusEffect(
     useCallback(() => {
       const interval = setInterval(() => {
@@ -145,48 +143,41 @@ export default function Expenses() {
     setRefreshing(false);
   };
 
-  // ✅ SIMPLIFIED INIT (CURRENT ONLY)
+  // ✅ INIT FOR ARCHIVE ONLY
   const init = useCallback(async () => {
     try {
-      const currentCycle = await ensureCurrentCycle();
-      if (!currentCycle) return;
+      if (!cycle_id) return;
 
-      setCycle(currentCycle);
+      const { data } = await supabase
+        .from("cycles")
+        .select("*")
+        .eq("id", cycle_id)
+        .single();
 
-      const dates = generateCycleDates(
-        currentCycle.start_date,
-        currentCycle.end_date,
-      );
+      if (!data) return;
 
+      setCycle(data);
+
+      const dates = generateCycleDates(data.start_date, data.end_date);
       setCycleDates(dates);
 
-      const todayStr = formatDateISO(new Date());
-
-      const defaultDate = dates.includes(todayStr) ? todayStr : dates[0];
+      // always start at first date for archive
+      const defaultDate = dates[0];
 
       setSelectedDate(defaultDate);
 
-      await fetchExpensesByDate(defaultDate, currentCycle.id);
+      await fetchExpensesByDate(defaultDate, data.id);
     } catch (err) {
       console.log(err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [cycle_id]);
 
-  // ✅ TAB SAFE
   useFocusEffect(
     useCallback(() => {
       init();
     }, [init]),
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      if (cycle?.id && selectedDate) {
-        fetchExpensesByDate(selectedDate, cycle.id);
-      }
-    }, [refreshKey, cycle?.id, selectedDate]),
   );
 
   function handleSelectDate(date: string) {
@@ -201,8 +192,8 @@ export default function Expenses() {
 
   const total = expenses.reduce((sum, item) => sum + Number(item.amount), 0);
 
-  // ✅ ALWAYS CURRENT
-  const isArchived = false;
+  // ✅ ALWAYS ARCHIVED
+  const isArchived = true;
 
   if (loading) {
     return (
@@ -239,9 +230,9 @@ export default function Expenses() {
               {formatPrettyDate(selectedDate)}
             </Text>
 
-            {/* ✅ ALWAYS CURRENT */}
+            {/* ✅ ALWAYS ARCHIVED */}
             <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 12 }}>
-              Current Cycle
+              Archived Cycle
             </Text>
 
             <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 12 }}>
@@ -258,12 +249,10 @@ export default function Expenses() {
         >
           {cycleDates.map((date) => {
             const isSelected = date === selectedDate;
-            const isFuture = isFutureDate(new Date(date));
 
             return (
               <TouchableOpacity
                 key={date}
-                disabled={isFuture}
                 onPress={() => handleSelectDate(date)}
                 style={{
                   alignItems: "center",
@@ -274,7 +263,6 @@ export default function Expenses() {
                   backgroundColor: isSelected
                     ? theme.colors.primary
                     : theme.colors.surface,
-                  opacity: isFuture ? 0.4 : 1,
                 }}
               >
                 <Text
@@ -314,13 +302,13 @@ export default function Expenses() {
             color: theme.colors.onBackground,
           }}
         >
-          Today's Transactions
+          Transactions
         </Text>
 
         <View style={{ flex: 1 }}>
           <TransactionList
             data={expenses}
-            isArchived={false}
+            isArchived={true}
             onPressItem={(item) => {
               setSelectedTransaction(item);
               setShowModal(true);

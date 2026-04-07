@@ -272,7 +272,7 @@ export default function Dashboard() {
   });
 
   const INCOME = wallets.reduce((sum, w) => sum + safeNumber(w.balance), 0);
-  const REMAINING = INCOME - total;
+  const REMAINING = INCOME;
 
   if (loading) {
     return (
@@ -369,58 +369,46 @@ export default function Dashboard() {
                         padding: 20,
                         width: CARD_WIDTH,
                         marginRight: SPACING,
+                        justifyContent: "center",
                       }}
                     >
+                      {/* 🔥 REMAINING (MAIN FOCUS) */}
                       <Text style={{ color: "rgba(255,255,255,0.7)" }}>
-                        Total Budget
+                        Remaining Balance
                       </Text>
 
                       <Text
                         style={{
                           color: "white",
-                          fontSize: 28,
+                          fontSize: 32,
                           fontWeight: "bold",
-                          marginTop: 8,
+                          marginTop: 6,
                         }}
                       >
-                        {formatCurrency(INCOME)}
+                        {formatCurrency(REMAINING)}
                       </Text>
 
-                      {/* ✅ NEW ROW LAYOUT */}
-                      <View
-                        style={{
-                          flexDirection: "row",
-                          justifyContent: "space-between",
-                          marginTop: 16,
-                        }}
-                      >
-                        <View>
-                          <Text
-                            style={{
-                              color: "rgba(255,255,255,0.7)",
-                              fontSize: 12,
-                            }}
-                          >
-                            Remaining
-                          </Text>
-                          <Text style={{ color: "white", fontWeight: "bold" }}>
-                            {formatCurrency(REMAINING)}
-                          </Text>
-                        </View>
+                      {/* 🔥 SPENT BELOW */}
+                      <View style={{ marginTop: 20 }}>
+                        <Text
+                          style={{
+                            color: "rgba(255,255,255,0.7)",
+                            fontSize: 12,
+                          }}
+                        >
+                          Spent
+                        </Text>
 
-                        <View style={{ alignItems: "flex-end" }}>
-                          <Text
-                            style={{
-                              color: "rgba(255,255,255,0.7)",
-                              fontSize: 12,
-                            }}
-                          >
-                            Spent
-                          </Text>
-                          <Text style={{ color: "white", fontWeight: "bold" }}>
-                            {formatCurrency(total)}
-                          </Text>
-                        </View>
+                        <Text
+                          style={{
+                            color: "white",
+                            fontWeight: "bold",
+                            fontSize: 20,
+                            marginTop: 2,
+                          }}
+                        >
+                          {formatCurrency(total)}
+                        </Text>
                       </View>
                     </LinearGradient>
                   );
@@ -428,7 +416,7 @@ export default function Dashboard() {
 
                 const spent = walletSpending[item.id] || 0;
                 const balance = safeNumber(item.balance);
-                const remaining = Number((balance - spent).toFixed(2));
+                const remaining = balance;
 
                 return (
                   <TouchableOpacity
@@ -626,7 +614,6 @@ export default function Dashboard() {
       <UpdateWalletModal
         visible={showWalletModal}
         wallet={selectedWallet}
-        cycleId={cycle?.id} // ✅ ADD THIS
         onClose={() => setShowWalletModal(false)}
         onUpdated={loadData}
       />

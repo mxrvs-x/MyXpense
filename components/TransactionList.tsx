@@ -32,12 +32,53 @@ export default function TransactionList({
     }).format(value || 0);
   };
 
-  // ❌ BLOCK DELETE if archived
   const handleDelete = async (item: any) => {
     if (isArchived) return;
 
     currentSwipeable.current?.close();
 
+    // ✅ 1. Get expense details (amount + wallet)
+    const { data: expenseData, error: fetchError } = await supabase
+      .from("expenses")
+      .select("amount, wallet_id")
+      .eq("id", item.id)
+      .single();
+
+    if (fetchError) {
+      console.log(fetchError.message);
+      return;
+    }
+
+    const amount = Number(expenseData.amount || 0);
+    const walletId = expenseData.wallet_id;
+
+    // ✅ 2. Get current wallet balance
+    const { data: walletData, error: walletError } = await supabase
+      .from("wallets")
+      .select("balance")
+      .eq("id", walletId)
+      .single();
+
+    if (walletError) {
+      console.log(walletError.message);
+      return;
+    }
+
+    const currentBalance = Number(walletData.balance || 0);
+    const newBalance = currentBalance + amount;
+
+    // ✅ 3. Refund wallet
+    const { error: updateError } = await supabase
+      .from("wallets")
+      .update({ balance: Number(newBalance.toFixed(2)) })
+      .eq("id", walletId);
+
+    if (updateError) {
+      console.log(updateError.message);
+      return;
+    }
+
+    // ✅ 4. Delete expense
     const { error } = await supabase
       .from("expenses")
       .delete()
@@ -45,6 +86,13 @@ export default function TransactionList({
 
     if (error) {
       console.log(error.message);
+
+      // 🔁 rollback wallet if delete fails
+      await supabase
+        .from("wallets")
+        .update({ balance: currentBalance })
+        .eq("id", walletId);
+
       return;
     }
 

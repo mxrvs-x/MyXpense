@@ -100,7 +100,7 @@ export default function AddExpenseModal({
   };
 
   const handleSave = async () => {
-    if (isSaving) return; // 🚫 prevent double click
+    if (isSaving) return;
 
     setIsSaving(true);
 
@@ -141,34 +141,29 @@ export default function AddExpenseModal({
         now.getTime() - now.getTimezoneOffset() * 60000,
       ).toISOString();
 
-      // ✅ 2. Get current spent for this wallet
-      const { data: expensesData, error: expenseError } = await supabase
-        .from("expenses")
-        .select("amount")
-        .eq("wallet_id", walletId);
-
-      if (expenseError) {
-        console.log(expenseError.message);
-        setErrorMessage("Failed to validate balance");
-        return;
-      }
-
-      const spent = (expensesData || []).reduce(
-        (sum, item) => sum + Number(item.amount),
-        0,
-      );
-
-      const remaining = totalBalance - spent;
-
-      // ✅ 3. Validate remaining
-      if (remaining - parsedAmount < 0) {
+      // 🔥 FIXED VALIDATION (NO MORE DOUBLE SUBTRACTION)
+      if (totalBalance - parsedAmount < 0) {
         setErrorMessage("Not enough balance in this wallet");
         return;
       }
 
       setErrorMessage(null);
 
-      // ✅ 4. Insert expense ONLY (no wallet update)
+      // 🔥 Deduct wallet balance
+      const newBalance = totalBalance - parsedAmount;
+
+      const { error: walletUpdateError } = await supabase
+        .from("wallets")
+        .update({ balance: Number(newBalance.toFixed(2)) })
+        .eq("id", walletId);
+
+      if (walletUpdateError) {
+        console.log(walletUpdateError.message);
+        setErrorMessage("Failed to update wallet");
+        return;
+      }
+
+      // ✅ Insert expense
       const { error } = await supabase.from("expenses").insert({
         name,
         amount: Number(parsedAmount.toFixed(2)),
@@ -182,14 +177,19 @@ export default function AddExpenseModal({
 
       if (error) {
         console.log(error.message);
+
+        // 🔁 rollback wallet if insert fails
+        await supabase
+          .from("wallets")
+          .update({ balance: totalBalance })
+          .eq("id", walletId);
+
         setErrorMessage("Failed to save expense");
         return;
       }
 
-      // ✅ 5. Update cycle budget (still valid)
       await updateCycleBudget(cycleId, user.id);
 
-      // RESET
       setName("");
       setAmount("");
       setNotes("");
@@ -203,6 +203,8 @@ export default function AddExpenseModal({
       setIsSaving(false);
     }
   };
+
+  // 🔽 EVERYTHING BELOW UNCHANGED
 
   const renderDropdown = (
     label: string,
@@ -355,7 +357,6 @@ export default function AddExpenseModal({
                 setCategory,
               )}
 
-              {/* 🔴 ERROR */}
               {errorMessage && (
                 <View
                   style={{
@@ -386,9 +387,7 @@ export default function AddExpenseModal({
                 disabled={isSaving}
                 style={{
                   marginTop: 16,
-                  backgroundColor: isSaving
-                    ? "#9ca3af" // gray when disabled
-                    : theme.colors.primary,
+                  backgroundColor: isSaving ? "#9ca3af" : theme.colors.primary,
                   padding: 14,
                   borderRadius: 12,
                   alignItems: "center",

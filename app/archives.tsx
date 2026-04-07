@@ -28,12 +28,12 @@ export default function Archives() {
   };
 
   const fetchCycles = async () => {
-    const today = new Date().toISOString(); // current date
+    const today = new Date().toISOString();
 
     const { data } = await supabase
       .from("cycles")
       .select("*")
-      .lt("end_date", today) // 🔥 ONLY past cycles
+      .lt("end_date", today)
       .order("end_date", { ascending: false });
 
     if (!data) return;
@@ -111,14 +111,12 @@ export default function Archives() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: 16 }}
         renderItem={({ item }) => {
-          const remaining = item.budget - item.total;
-
           return (
             <TouchableOpacity
               style={{ marginBottom: 16 }}
               onPress={() => {
-                router.push({
-                  pathname: "/expenses",
+                router.navigate({
+                  pathname: "/expenses-archive",
                   params: { cycle_id: item.id },
                 });
               }}
@@ -134,17 +132,6 @@ export default function Archives() {
                   {formatDate(item.start_date)} – {formatDate(item.end_date)}
                 </Text>
 
-                <Text
-                  style={{
-                    color: "white",
-                    fontSize: 20,
-                    fontWeight: "bold",
-                    marginTop: 8,
-                  }}
-                >
-                  {formatCurrency(item.budget)}
-                </Text>
-
                 <View
                   style={{
                     flexDirection: "row",
@@ -154,22 +141,22 @@ export default function Archives() {
                 >
                   <View>
                     <Text style={{ color: "rgba(255,255,255,0.7)" }}>
-                      Spent
-                    </Text>
-                    <Text style={{ color: "white", fontWeight: "bold" }}>
-                      {formatCurrency(item.total)}
-                    </Text>
-                  </View>
-
-                  <View>
-                    <Text style={{ color: "rgba(255,255,255,0.7)" }}>
-                      Remaining
-                    </Text>
-                    <Text style={{ color: "white", fontWeight: "bold" }}>
-                      {formatCurrency(remaining)}
+                      Total Spent
                     </Text>
                   </View>
                 </View>
+
+                {/* ✅ TOTAL SPENT AS MAIN VALUE */}
+                <Text
+                  style={{
+                    color: "white",
+                    fontSize: 20,
+                    fontWeight: "bold",
+                    marginTop: 8,
+                  }}
+                >
+                  {formatCurrency(item.total)}
+                </Text>
               </LinearGradient>
             </TouchableOpacity>
           );

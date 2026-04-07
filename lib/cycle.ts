@@ -50,26 +50,10 @@ export const ensureCurrentCycle = async () => {
   }
 
   if (existing) {
-    return existing; // ✅ already exists → use it
+    return existing;
   }
 
-  // 🔥 NEW: Compute wallet total (carry-over budget)
-  const { data: wallets, error: walletError } = await supabase
-    .from("wallets")
-    .select("balance")
-    .eq("user_id", user.id);
-
-  if (walletError) {
-    console.log("Wallet fetch error:", walletError.message);
-    return null;
-  }
-
-  const totalBudget = (wallets || []).reduce(
-    (sum, w) => sum + Number(w.balance || 0),
-    0,
-  );
-
-  // ➕ Create new cycle with computed budget
+  // ➕ Create new cycle (NO budget)
   const { data: newCycle, error } = await supabase
     .from("cycles")
     .insert([
@@ -77,7 +61,6 @@ export const ensureCurrentCycle = async () => {
         user_id: user.id,
         start_date: startDate,
         end_date: endDate,
-        budget: Number(totalBudget.toFixed(2)), // ✅ FIXED
       },
     ])
     .select()
